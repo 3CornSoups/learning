@@ -1,0 +1,9 @@
+{
+  "source": "search",
+  "keyword": "猫咪",
+  "title_contains": ["猫"],
+  "limit": 3,
+  "max_duration": 180,
+  "max_video_mb": 100,
+  "output_dir": "../downloads"
+}

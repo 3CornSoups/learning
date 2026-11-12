@@ -1,0 +1,11 @@
+{
+  "source": "search",
+  "keyword": "猫咪",
+  "limit": 3,
+  "plugins": ["plugins.min_likes"],
+  "rules": [
+    {"type": "min_likes", "value": 1000},
+    {"type": "title_contains", "words": ["猫咪", "小猫"], "match": "any"}
+  ],
+  "output_dir": "../downloads"
+}

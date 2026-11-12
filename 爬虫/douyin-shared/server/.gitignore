@@ -1,0 +1,11 @@
+/auth/*
+!/auth/README.md
+/.cache/
+/downloads/
+/reports/
+/logs/
+/.venv/
+__pycache__/
+*.pyc
+*.tmp
+cookie*.txt

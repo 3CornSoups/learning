@@ -1,0 +1,7 @@
+# 公开作品示例，仅用于说明格式；作品可能下架，不能作为永久成功保证。
+# 可用完整 /video/ 链接、含 modal_id 的网页链接，或纯数字作品 ID。
+https://www.douyin.com/video/7704637489155305930
+https://www.douyin.com/video/7704257974576012442
+https://www.douyin.com/video/7702776476387775219
+https://www.douyin.com/video/7701675832264374922
+https://www.douyin.com/video/7697628550832379099

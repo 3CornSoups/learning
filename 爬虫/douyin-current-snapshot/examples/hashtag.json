@@ -1,0 +1,6 @@
+{
+  "source": "hashtag",
+  "tag": "猫咪",
+  "limit": 3,
+  "output_dir": "../downloads"
+}

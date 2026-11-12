@@ -1,0 +1,8 @@
+[project]
+name = "douyin-original-f2-test"
+version = "0.1.0"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "f2==0.0.1.7",
+    "tqdm>=4.70.1",
+]

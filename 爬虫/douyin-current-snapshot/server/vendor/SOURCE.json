@@ -1,0 +1,9 @@
+{
+  "source": "./douyin-shared",
+  "retrieved_from": "./original-f2-test",
+  "note": "Original Python files preserved byte-for-byte; compatibility changes live in douyin_server/backend.py",
+  "sha256": {
+    "download_by_urls.py": "5ec5d94a58a4102424ade7e7d8757428cfbcf19a093acf1b87b3ab803cd65b6a",
+    "download_douyin.py": "fa3b5af178ea28a48914d4f1b095d2c63de8847891905423cabec1ea4ca1d92c"
+  }
+}

@@ -1,0 +1,25 @@
+cookie.txt
+*.har
+test_page.html
+verified_downloads/
+douyin_videos/
+__pycache__/
+.venv/
+browser_profile/
+.tooling/
+.cache/
+runs/
+downloads/
+auth/
+
+# Server delivery private/runtime data
+server/auth/*
+!server/auth/README.md
+server/downloads/
+server/reports/
+server/logs/
+server/.cache/
+server/.venv/
+*.pyc
+*.tmp
+pip-*/

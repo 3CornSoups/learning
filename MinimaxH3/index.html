@@ -1,0 +1,1866 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-build="v17-20261105-1905">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>生成模型后训练与 MiniMax H3 实践</title>
+<style>
+:root{
+  --bg:#fbfbfa;--card:#ffffff;--ink:#1a1a1a;--sub:#5b6070;--line:#e6e6e3;
+  --accent:#0a8f5b;--accent-soft:#eaf7f0;--accent-ink:#076b45;--warn:#b45309;--warn-soft:#fff7ed;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --shadow:0 1px 2px rgba(20,24,36,.04),0 8px 22px rgba(20,24,36,.05);
+  --measure:74ch;--r:12px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:24px}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:16px/1.86 -apple-system,"PingFang SC","SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+.wrap{max-width:1200px;margin:0 auto;padding:0 32px 110px}
+.progress{position:fixed;top:0;left:0;right:0;height:2px;background:transparent;z-index:60}
+.progress i{display:block;height:100%;width:0;background:var(--accent);transition:width .12s linear}
+.hero{padding:72px 0 44px;border-bottom:1px solid var(--line);position:relative;overflow:hidden}
+.hero:after{content:"";position:absolute;right:-120px;top:-120px;width:360px;height:360px;border-radius:50%;
+  background:radial-gradient(circle,rgba(10,143,91,.07),transparent 68%);pointer-events:none}
+.kicker{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);font-weight:600}
+h1{margin:14px 0 18px;font-size:46px;line-height:1.22;letter-spacing:-.022em;font-weight:700}
+.lede{margin:0;max-width:720px;font-size:17px;line-height:1.85;color:var(--sub)}
+.meta{display:flex;flex-wrap:wrap;gap:10px;margin-top:28px}
+.meta span{font-size:12.5px;border:1px solid var(--line);background:var(--card);border-radius:99px;padding:4px 11px;color:var(--sub)}
+.layout{display:grid;grid-template-columns:224px minmax(0,1fr);gap:56px;margin-top:52px}
+nav.toc{position:sticky;top:32px;align-self:start;font-size:13.5px;max-height:calc(100vh - 64px);overflow:auto}
+nav.toc div{color:#9a9ea8;font-size:11px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:10px}
+nav.toc a{display:block;color:var(--sub);text-decoration:none;padding:6px 10px;border-left:2px solid transparent;
+  border-radius:0 6px 6px 0;transition:color .18s,border-color .18s,background .18s}
+nav.toc a:hover{color:var(--accent);background:#f4f7f5}
+nav.toc a.on{color:var(--accent-ink);border-left-color:var(--accent);background:var(--accent-soft);font-weight:600}
+main{min-width:0}
+section{padding:10px 0 48px;border-bottom:1px solid var(--line);margin-bottom:40px}
+section:last-of-type{border-bottom:0}
+h2{display:flex;align-items:baseline;gap:12px;font-size:28px;line-height:1.34;margin:8px 0 18px;letter-spacing:-.012em}
+.num{font-family:var(--mono);font-size:12.5px;color:var(--accent-ink);background:var(--accent-soft);
+  border:1px solid #d3ecdf;border-radius:6px;padding:2px 8px;flex:0 0 auto}
+h3{position:relative;font-size:17.5px;margin:34px 0 10px;padding-left:14px;letter-spacing:-.004em}
+h3:before{content:"";position:absolute;left:0;top:.3em;width:3px;height:1.05em;border-radius:2px;
+  background:linear-gradient(180deg,var(--accent),#79cfa8)}
+p{margin:13px 0;max-width:var(--measure)}
+p.lead{font-size:16.5px;line-height:1.84;color:var(--sub);max-width:var(--measure)}
+b,strong{font-weight:600;color:var(--ink)}
+code{font-family:var(--mono);font-size:.87em;background:#f1f1ee;border:1px solid #e7e7e2;border-radius:4px;
+  padding:.5px 5px;color:#2b3a33;word-break:break-word}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:22px 24px;margin:20px 0;
+  box-shadow:var(--shadow)}
+dl.kv{margin:0;display:grid;grid-template-columns:134px 1fr;gap:11px 20px;font-size:14.5px}
+dl.kv dt{font-weight:600;color:var(--ink)}
+dl.kv dd{margin:0;color:var(--sub);line-height:1.8}
+table{width:100%;border-collapse:collapse;font-size:14px;background:var(--card);
+  border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:top;line-height:1.72}
+th{font-size:12.5px;letter-spacing:.04em;color:var(--sub);font-weight:600;background:#fafaf8}
+tr:hover td{background:#fcfcfa}
+tr:last-child td{border-bottom:0}
+td b{color:var(--ink)}
+.wrap-t{overflow-x:auto;margin:18px 0;-webkit-overflow-scrolling:touch}
+.wrap-t table{margin:0}
+.note{background:var(--accent-soft);border-left:3px solid var(--accent);border-radius:0 8px 8px 0;
+  padding:15px 19px;margin:20px 0;font-size:14.5px;line-height:1.85}
+.note ul{margin:8px 0 0;padding-left:20px}
+.note li{margin:6px 0;line-height:1.75}
+.warn{background:var(--warn-soft);border-left:3px solid var(--warn);border-radius:0 8px 8px 0;
+  padding:15px 19px;margin:20px 0;font-size:14.5px;line-height:1.85}
+.quote{border-left:2px solid var(--line);padding:4px 0 4px 18px;color:var(--sub);
+  font-size:15.5px;font-style:italic;margin:22px 0}
+.formula{font-family:var(--mono);font-size:13.5px;line-height:2;background:#171a1d;color:#e8eaed;
+  border-radius:10px;padding:20px 22px;margin:20px 0;overflow-x:auto;white-space:pre;
+  box-shadow:0 6px 20px rgba(20,24,36,.10)}
+.formula.flow{white-space:pre-wrap;overflow-wrap:anywhere}
+.formula .c{color:#7f8c9a}
+.formula .k{color:#7ee2b8}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:20px 0}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px 20px;
+  transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease}
+.stat:hover{transform:translateY(-2px);box-shadow:var(--shadow);border-color:#d7e9e0}
+.stat .big{font-family:var(--mono);font-size:13px;color:var(--accent-ink);font-weight:600;margin-bottom:7px}
+.stat small{display:block;color:var(--sub);font-size:14px;line-height:1.76}
+.step{display:flex;gap:16px;margin:16px 0}
+.step .n{flex:0 0 28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:13.5px;font-weight:700;margin-top:3px;
+  box-shadow:0 0 0 4px var(--accent-soft)}
+.step .b{flex:1;min-width:0}
+.step b{display:block;margin-bottom:2px}
+.tl{list-style:none;margin:20px 0;padding:0 0 0 20px;border-left:2px solid var(--line)}
+.tl li{position:relative;padding:0 0 18px 20px;font-size:14.5px;line-height:1.78}
+.tl li:before{content:"";position:absolute;left:-7px;top:10px;width:10px;height:10px;border-radius:50%;
+  background:var(--card);border:2px solid var(--accent)}
+.tl .y{font-family:var(--mono);font-size:12.5px;color:var(--accent);font-weight:600}
+footer.src{margin-top:20px;font-size:13px;color:var(--sub);line-height:1.9}
+footer.src a{color:var(--accent);text-decoration:none;border-bottom:1px solid #cfe8db}
+
+/* ── 图示 ───────────────────────────────────────── */
+figure.fig{margin:26px 0;background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+  padding:20px 22px 14px;box-shadow:var(--shadow)}
+.fig-h{font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:700;
+  margin-bottom:14px}
+.figbody{overflow-x:auto;-webkit-overflow-scrolling:touch}
+figure.fig svg{display:block;width:100%;height:auto;min-width:560px}
+figure.fig figcaption{margin-top:13px;padding-top:10px;border-top:1px dashed var(--line);
+  font-size:12.5px;color:var(--sub);line-height:1.78;max-width:none}
+figure.fig figcaption b{color:var(--ink)}
+.fx text{font-family:-apple-system,"PingFang SC","Segoe UI",Roboto,sans-serif}
+.fx .t{font-size:12.5px;font-weight:600;fill:var(--ink)}
+.fx .t2{font-size:11.5px;font-weight:600;fill:var(--accent-ink)}
+.fx .s{font-size:10.5px;fill:var(--sub)}
+.fx .tm{font-family:var(--mono);font-size:10px;fill:var(--sub)}
+.fx .n{fill:#fff;stroke:#d9dcd6;stroke-width:1.4}
+.fx .n-a{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.5}
+.fx .n-w{fill:var(--warn-soft);stroke:var(--warn);stroke-width:1.4}
+.fx .n-d{fill:#f7f7f5;stroke:#d9dcd6;stroke-width:1.2}
+.fx .ln{stroke:#c4c9d1;stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.fx .ln-a{stroke:var(--accent);stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.fx .ln-w{stroke:var(--warn);stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:5 4}
+.fx .ah{fill:#c4c9d1}
+.fx .ah-a{fill:var(--accent)}
+.fx .ah-w{fill:var(--warn)}
+.fx .bar-a{fill:var(--accent)}
+.fx .bar-b{fill:#d5d8d2}
+.fx .divider{stroke:var(--line);stroke-width:1;stroke-dasharray:3 5}
+/* 入场与流动 */
+.reveal{opacity:0}
+.reveal.in{animation:rise .52s cubic-bezier(.22,.7,.3,1) forwards}
+@keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:no-preference){
+  .fx .dash{stroke-dasharray:6 5;animation:dashmove 1.8s linear infinite}
+}
+@keyframes dashmove{to{stroke-dashoffset:-22}}
+.totop{position:fixed;right:28px;bottom:28px;width:42px;height:42px;border-radius:50%;
+  border:1px solid var(--line);background:var(--card);color:var(--accent);box-shadow:var(--shadow);cursor:pointer;
+  font-size:15px;line-height:1;display:flex;align-items:center;justify-content:center;z-index:55;
+  opacity:0;pointer-events:none;transform:translateY(8px);transition:opacity .22s,transform .22s,background .18s}
+.totop.show{opacity:1;pointer-events:auto;transform:none}
+.totop:hover{background:var(--accent-soft)}
+@media(min-width:861px) and (max-width:1120px){
+  .layout{grid-template-columns:186px minmax(0,1fr);gap:34px}
+}
+@media(max-width:860px){
+  .layout{grid-template-columns:1fr;gap:0}nav.toc{display:none}
+  h1{font-size:31px}.wrap{padding:0 18px 76px}.hero{padding:44px 0 30px}
+  h2{font-size:23px;gap:9px}h3{font-size:16.5px;margin-top:28px}
+  dl.kv{grid-template-columns:1fr;gap:2px 0}dl.kv dd{margin-bottom:12px}
+  .grid2{grid-template-columns:1fr}
+  figure.fig{padding:15px 14px 11px;margin:20px 0}
+  figure.fig svg{min-width:540px}
+  .totop{right:16px;bottom:16px;width:38px;height:38px}
+}
+
+.part{display:flex;align-items:baseline;gap:14px;margin:52px 0 18px;padding:14px 18px;
+  background:var(--accent-soft);border-left:4px solid var(--accent);border-radius:0 var(--r) var(--r) 0}
+.part span{font:11px/1 var(--mono);letter-spacing:.12em;color:var(--accent-ink);opacity:.75}
+.part b{font-size:17px;color:var(--accent-ink)}
+.part i{margin-left:auto;font-style:normal;font-size:12px;color:var(--sub)}
+nav.toc .navh{margin:14px 10px 4px;font:11px/1 var(--mono);letter-spacing:.1em;color:var(--sub);opacity:.65}
+</style>
+<noscript><style>.reveal{opacity:1!important}</style></noscript>
+</head>
+<body>
+<div class="progress"><i></i></div>
+<div class="wrap">
+<header class="hero">
+  <div class="kicker">生成模型后训练 · MiniMax H3 实践</div>
+  <h1>生成模型后训练与 MiniMax H3 实践</h1>
+  <p class="lede">先建立 RL 与扩散模型的基础，再按 H3 偏好优化、少步蒸馏、二阶段采样、SeedVR 恢复和产线权重的顺序讲实现与取舍。算法结果、归档配置和线上验证状态分开标注。</p>
+  <p class="note"><b>MiniMax H3 快速入口：</b><a href="#s11">DMD / SGMD 少步蒸馏</a> → <a href="#s12">二阶段采样与 SeedVR</a> → <a href="#s13">Agnes 权重组合</a>。可直接从这三节开始；RL 与扩散基础在第 1–10 节，专题文字版见 <a href="h3.md">h3.md</a>。</p>
+  <div class="meta">
+    <span>整理日期 2026-11-12</span>
+    <span>面向：有深度学习基础、没系统学过 RL 的读者</span>
+    <span>配套：papers.md · h3.md · toy_grpo.py</span>
+    <span>版本 v19 · 构建 2026-11-12 · 增加 H3 快速导航与 SGMD 更新流程</span>
+  </div>
+</header>
+
+<div class="layout">
+<nav>
+  <div>目录</div>
+  <a href="#s0">0 · 一页速览</a>
+  <div class="navh">H3 快速阅读</div>
+  <a href="#s11">DMD / SGMD 少步蒸馏</a>
+  <a href="#s12">二阶段采样与 SeedVR</a>
+  <a href="#s13">Agnes 权重组合</a>
+  <div class="navh">一 · 原理与后训练基础</div>
+  <a href="#s1">1 · RL 到底在优化什么</a>
+  <a href="#s2">2 · 算法谱系</a>
+  <a href="#s3">3 · GRPO 改了什么</a>
+  <a href="#s4">4 · 扩散模型为什么难</a>
+  <a href="#s5">5 · Flow-GRPO 两把钥匙</a>
+  <a href="#s6">6 · 改进树（2025-26）</a>
+  <div class="navh">二 · 后训练实操</div>
+  <a href="#s7">7 · 开源项目地图</a>
+  <a href="#s8">8 · 奖励怎么设计</a>
+  <a href="#s9">9 · MiniMax H3 实操</a>
+  <a href="#s10">10 · 避坑与验收</a>
+  <div class="navh">三 · 少步蒸馏与高清路线</div>
+  <a href="#s11">11 · 少步蒸馏（DMD）</a>
+  <a href="#s12">12 · 二阶段采样与 SeedVR</a>
+  <a href="#s13">13 · Agnes 产线权重组合</a>
+  <div class="navh">四 · 推理、评测与使用</div>
+  <a href="#s14">14 · 采样参数手册</a>
+  <a href="#s15">15 · 推理引擎</a>
+  <a href="#s16">16 · 评测体系</a>
+  <a href="#s17">17 · H3 提示词语法</a>
+  <div class="navh">五 · 案例排查与修复</div>
+  <a href="#s18">18 · 病例排查</a>
+  <a href="#s19">19 · 远景人脸归因与修复</a>
+  <div class="navh">附录</div>
+  <a href="#s20">20 · 学习路径</a>
+</nav>
+
+<main>
+<section id="s0">
+  <h2><span class="num">00</span>一页速览</h2>
+  <p class="lead">用一个具体例子走一遍：让模型画「一只戴红帽子的猫在喝咖啡」。下面四张卡就是完整的四步。</p>
+  <div class="grid2">
+    <div class="stat"><div class="big">第 1 步 让它会画</div><small>喂几百万组「图片 + 描述」，它学会猫、帽子、咖啡杯长什么样。这一步叫预训练。此时它画得出来，但好不好看、听不听话，没人保证。</small></div>
+    <div class="stat"><div class="big">第 2 步 画 8 张，打分</div><small>同一个要求，让它画 8 张，得到 8 个不同版本。再用一个专门打分的模型逐张给分：6.2、7.1、5.8、7.4、6.9、6.5、7.8、6.0。平均 6.7，高于平均的 7.1 / 7.4 / 7.8 就是「好」的方向。<br><b>这一步就是 GRPO</b>：不看绝对分数，只看「在你这 8 张里排前面还是后面」。</small></div>
+    <div class="stat"><div class="big">第 3 步 让它更爱画好的</div><small>把第 2 步里高分那几张的「出现可能性」往上推。下次同样的要求，更容易画出 7 分以上的。同时要拴住它别跑偏 —— 分数一路涨、画面却越来越丑，是这套方法最常见的翻车方式。</small></div>
+    <div class="stat"><div class="big">第 4 步 换成视频，多两个麻烦</div><small><b>麻烦一：</b>视频是一笔一笔画几十笔，每一笔都是算死的。模型没法告诉你「它本来有多大把握画出这条路径」，而第 3 步正需要这个数 —— 解法是每一笔都撒一点随机噪声，把「把握」变成能算的数。<br><b>麻烦二：</b>几十笔全练太贵，只挑其中一段练。补上这两件事，就是 <b>Flow-GRPO</b>。</small></div>
+  </div>
+  <div class="note"><b>第 5 步（H3 这类音视频模型）：</b>算法还是上面四步，难的是工程 —— 声音会不会在某一步悄悄丢了、改过的东西有没有真的生效。目前跑得通的两条路：一条 <b>2 张卡、只改一小部分参数</b>，一条 <b>8 张卡、同时给画面和声音打分</b>。</div>
+
+  <div class="note" style="background:#f6f6f4;border-left-color:#c9c9c4"><b>想去看论文时的名词对照：</b>第 2 步 = <b>GRPO</b>；第 4 步的「每笔撒噪声」= <b>ODE→SDE</b>，「只挑一段练」= <b>Denoising Reduction</b>；两条落地路线 = <b>Flow-GRPO</b> 与 <b>DiffusionNFT</b>。名词就这几个，事情你已经走完了。</div>
+
+  <figure class="fig">
+    <div class="fig-h">Fig 1 · 五步总览</div>
+    <div class="figbody">
+    <svg class="fx" viewBox="0 0 820 158" role="img" aria-label="从预训练到音视频强化学习的五步流程">
+      <defs><marker id="m1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah" d="M0 0 L10 5 L0 10 z"/></marker></defs>
+      <rect class="n" x="13" y="38" width="146" height="78" rx="10"/>
+      <text class="t" x="86" y="64" text-anchor="middle">① 预训练</text>
+      <text class="s" x="86" y="84" text-anchor="middle">学会画得出来</text>
+      <text class="tm" x="86" y="102" text-anchor="middle">pretrain / SFT</text>
+
+      <rect class="n" x="175" y="38" width="146" height="78" rx="10"/>
+      <text class="t" x="248" y="64" text-anchor="middle">② 采样 8 条</text>
+      <text class="s" x="248" y="84" text-anchor="middle">同一题出 8 个版本</text>
+      <text class="tm" x="248" y="102" text-anchor="middle">rollout</text>
+
+      <rect class="n-a" x="337" y="38" width="146" height="78" rx="10"/>
+      <text class="t" x="410" y="64" text-anchor="middle">③ 组内打分</text>
+      <text class="s" x="410" y="84" text-anchor="middle">均值当及格线</text>
+      <text class="tm" x="410" y="102" text-anchor="middle">GRPO</text>
+
+      <rect class="n" x="499" y="38" width="146" height="78" rx="10"/>
+      <text class="t" x="572" y="64" text-anchor="middle">④ 策略更新</text>
+      <text class="s" x="572" y="84" text-anchor="middle">推高正优势样本</text>
+      <text class="tm" x="572" y="102" text-anchor="middle">clip + KL</text>
+
+      <rect class="n-d" x="661" y="38" width="146" height="78" rx="10"/>
+      <text class="t" x="734" y="64" text-anchor="middle">⑤ 视频 / 音视频</text>
+      <text class="s" x="734" y="84" text-anchor="middle">加抖动、少训几步</text>
+      <text class="tm" x="734" y="102" text-anchor="middle">Flow-GRPO</text>
+
+      <path class="ln" d="M159 77 H171" marker-end="url(#m1)"/>
+      <path class="ln" d="M321 77 H333" marker-end="url(#m1)"/>
+      <path class="ln" d="M483 77 H495" marker-end="url(#m1)"/>
+      <path class="ln" d="M645 77 H657" marker-end="url(#m1)"/>
+      <text class="s" x="13" y="142">①–④ 是算法层，所有生成模型通用；⑤ 是工程层，卡的是显存、模态与推理成本。</text>
+    </svg>
+    </div>
+    <figcaption><b>怎么用这张图：</b>先记住 ③ 是唯一「新东西」。① 是已有的模型，②④ 是 PPO 时代就有的机械动作，⑤ 只是把 ②④ 搬到更贵的模型上时做的工程妥协。</figcaption>
+  </figure>
+</section>
+
+<div class="part"><span>PART 1</span><b>原理：RL 为什么能改扩散模型</b><i>1–6 节</i></div>
+
+<section id="s1">
+  <h2><span class="num">1</span>RL 到底在优化什么</h2>
+  <p class="lead">把模型想象成一个学生，把奖励模型（reward model）想象成阅卷老师。RL 后训练就是：让学生对同一道题写 G 份答案，老师逐份打分，然后告诉学生「哪份比你自己平均水平更好，以后多写这种」。</p>
+
+  <figure class="fig">
+    <div class="fig-h">Fig 2 · RL 后训练的闭环</div>
+    <div class="figbody">
+    <svg class="fx" viewBox="0 0 820 262" role="img" aria-label="策略、采样、奖励、优势、更新的闭环流程">
+      <defs>
+        <marker id="m2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah" d="M0 0 L10 5 L0 10 z"/></marker>
+        <marker id="m2a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah-a" d="M0 0 L10 5 L0 10 z"/></marker>
+      </defs>
+
+      <rect class="n" x="70" y="52" width="150" height="64" rx="10"/>
+      <text class="t" x="145" y="80" text-anchor="middle">策略 π_θ</text>
+      <text class="s" x="145" y="99" text-anchor="middle">就是模型本身</text>
+
+      <rect class="n" x="300" y="52" width="170" height="64" rx="10"/>
+      <text class="t" x="385" y="80" text-anchor="middle">Rollout 采样</text>
+      <text class="s" x="385" y="99" text-anchor="middle">同一 prompt 生成 G 条</text>
+
+      <rect class="n-w" x="550" y="52" width="180" height="64" rx="10"/>
+      <text class="t" x="640" y="80" text-anchor="middle">奖励打分</text>
+      <text class="s" x="640" y="99" text-anchor="middle">规则 / PickScore / CLAP</text>
+
+      <rect class="n-a" x="550" y="176" width="180" height="64" rx="10"/>
+      <text class="t" x="640" y="204" text-anchor="middle">组内优势 A</text>
+      <text class="tm" x="640" y="223" text-anchor="middle">A=(r−mean)/std</text>
+
+      <rect class="n" x="300" y="176" width="170" height="64" rx="10"/>
+      <text class="t" x="385" y="204" text-anchor="middle">参数更新</text>
+      <text class="s" x="385" y="223" text-anchor="middle">clip + KL 约束</text>
+
+      <rect class="n-d" x="235" y="126" width="270" height="38" rx="8"/>
+      <text class="s" x="370" y="150" text-anchor="middle">on-policy：样本必须由当前这版模型现场生成</text>
+
+      <path class="ln" d="M220 84 H296" marker-end="url(#m2)"/>
+      <path class="ln" d="M470 84 H546" marker-end="url(#m2)"/>
+      <path class="ln" d="M640 116 V172" marker-end="url(#m2)"/>
+      <path class="ln" d="M550 208 H474" marker-end="url(#m2)"/>
+      <path class="ln-a" d="M300 208 H145 V120" marker-end="url(#m2a)"/>
+
+      <text class="s" x="258" y="76" text-anchor="middle">采样</text>
+      <text class="s" x="508" y="76" text-anchor="middle">打分</text>
+      <text class="s" x="652" y="148" >标准化</text>
+      <text class="s" x="512" y="200" text-anchor="middle">带符号的优势</text>
+      <text class="s" x="180" y="200" text-anchor="middle">更新参数</text>
+    </svg>
+    </div>
+    <figcaption><b>闭环里唯一「要看数据」的一步是优势。</b>PPO 用另一个模型（critic）来猜这个基线，GRPO 直接拿同组 G 条样本的均值当基线 —— 少养一个模型，代价是每题必须采一组。</figcaption>
+  </figure>
+
+  <div class="card">
+    <dl class="kv">
+      <dt>Policy 策略</dt><dd>就是模型本身。它给每个可能的输出分配一个概率。RL 只改概率，不改结构。</dd>
+      <dt>Rollout 采样</dt><dd>用当前模型真正生成一批样本。视频模型里就是跑一遍完整的去噪采样。</dd>
+      <dt>Reward 奖励</dt><dd>一个打分函数。可以是规则（数对了几个物体）、也可以是模型（PickScore / HPS / VideoAlign / CLAP）。</dd>
+      <dt>Advantage 优势</dt><dd>「这份样本比基线好多少」。正数→提高它的概率，负数→降低。</dd>
+      <dt>KL 约束</dt><dd>防止模型为了骗分跑得太远，把自己的语言/画风搞崩。通常对参考模型加一个惩罚项。</dd>
+    </dl>
+  </div>
+
+  <h3>先混个脸熟：后面反复出现的 12 个词</h3>
+  <p>不用背，看一遍有个印象就行。遇到不懂的随时回来查这一节。</p>
+  <div class="wrap-t">
+  <table>
+    <tr><th style="width:150px">名词</th><th>一句人话</th></tr>
+    <tr><td><b>价值网络 / critic</b></td><td>另训一个模型，专门预测「这道题按当前水平大概能拿几分」，这个预测分就是及格线。PPO 需要它，GRPO 把它删了。</td></tr>
+    <tr><td><b>基线 baseline</b></td><td>判断「好还是差」的参照物。只知道自己 85 分没用，得知道平均分是 70 还是 90。</td></tr>
+    <tr><td><b>log-prob 对数概率</b></td><td>模型给某个输出打的「概率分」，取对数只是为了数字好算、不溢出。RL 靠它判断「这次比上次更可能还是更不可能」。</td></tr>
+    <tr><td><b>轨迹 trajectory</b></td><td>一次完整生成的全过程。视频里就是从纯噪声一路去噪到成片，几十步，每步算一个动作。</td></tr>
+    <tr><td><b>去噪步</b></td><td>整条轨迹里的一小步，一步只把噪声减掉一点点。扩散模型的「动作」就是这些步。</td></tr>
+    <tr><td><b>确定性 ODE</b></td><td>一条死路：同一张起始雪花图，画一百次都是同一张。没得挑，也就算不出「把握」。</td></tr>
+    <tr><td><b>SDE</b></td><td>在上面那条路上，每走一步随机左右晃一下。整体还是走到同一片地方，但每次落的点不一样，于是能挑、也能算出「这次走成这样的把握」。</td></tr>
+    <tr><td><b>重要性比率 ρ</b></td><td>新版模型想画这个结果的意愿 ÷ 老版本的意愿。大于 1 说明「更想画了」，更新时给它加权。</td></tr>
+    <tr><td><b>clip 裁剪</b></td><td>把 ρ 限制在 0.8~1.2 之间，一次更新不许改动太猛，防止训练崩掉。</td></tr>
+    <tr><td><b>on-policy</b></td><td>样本必须由「当前这版模型」现场生成，不能用旧数据凑数，否则比率就失效了。</td></tr>
+    <tr><td><b>分叉 branching</b></td><td>从同一个中间状态同时往 G 个方向走，前半段共享，省算力。Flow-GRPO 提速的关键。</td></tr>
+    <tr><td><b>奖励黑客 reward hacking</b></td><td>模型找到骗分的捷径：分数一直涨，人看着却更差。RL 最主要的翻车方式。</td></tr>
+  </table>
+  </div>
+
+  <h3>和监督学习的关键区别</h3>
+  <div class="wrap-t">
+  <table>
+    <tr><th>维度</th><th>SFT / 监督微调</th><th>RL 后训练</th></tr>
+    <tr><td>信号</td><td>标准答案（token 级）</td><td>一个分数（序列级，甚至只有一个数）</td></tr>
+    <tr><td>数据</td><td>静态数据集，反复用</td><td>模型自己现场生成，分布随训练变化（on-policy）</td></tr>
+    <tr><td>优化目标</td><td>最大化正确 token 的似然</td><td>最大化期望奖励，同时别偏离太远</td></tr>
+    <tr><td>典型失败</td><td>分布外不会做</td><td>reward hacking：分数涨了，人看着更差</td></tr>
+  </table>
+  </div>
+
+  <div class="quote">一句话：SFT 教模型「像人一样写」，RL 教模型「往人更喜欢的方向多写一点」。前者学格式，后者学偏好。</div>
+
+  <h3>为什么生成模型也需要 RL</h3>
+  <p>预训练解决「会不会生成」，SFT/蒸馏解决「听不听得懂指令」，而 RL 解决的是那些<b>很难写成监督标签、但很容易打分</b>的东西：文字渲染是否清晰、人体结构是否合理、视频里物体是否一直存在、口型和声音是否同步、品牌 logo 有没有变形。这些目标写成 loss 很别扭，写成一个 reward model 却非常自然。</p>
+</section>
+
+<section id="s2">
+  <h2><span class="num">2</span>算法谱系：从 PPO 到 Flow-GRPO</h2>
+  <p class="lead">这一行字看起来很多，其实只在回答两个问题：<b>基线从哪来</b>、<b>要不要真的采样</b>。看懂这两条线，整棵树就顺了。</p>
+
+  <figure class="fig">
+    <div class="fig-h">Fig 3 · 算法谱系：主干与旁支</div>
+    <div class="figbody">
+    <svg class="fx" viewBox="0 0 820 406" role="img" aria-label="PPO 到 GRPO 到 Flow-GRPO 的谱系，以及 2025 年后的改进分支">
+      <defs>
+        <marker id="m3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah" d="M0 0 L10 5 L0 10 z"/></marker>
+        <marker id="m3a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah-a" d="M0 0 L10 5 L0 10 z"/></marker>
+      </defs>
+
+      <text class="tm" x="20" y="30">2017</text>
+      <text class="tm" x="220" y="30">2023</text>
+      <text class="tm" x="420" y="30">2024</text>
+      <text class="tm" x="620" y="30">2025</text>
+
+      <rect class="n" x="20" y="40" width="150" height="62" rx="10"/>
+      <text class="t" x="95" y="68" text-anchor="middle">PPO</text>
+      <text class="s" x="95" y="87" text-anchor="middle">critic 估基线</text>
+
+      <rect class="n" x="220" y="40" width="150" height="62" rx="10"/>
+      <text class="t" x="295" y="68" text-anchor="middle">DDPO / DPOK</text>
+      <text class="s" x="295" y="87" text-anchor="middle">扩散当多步决策</text>
+
+      <rect class="n-a" x="420" y="40" width="150" height="62" rx="10"/>
+      <text class="t" x="495" y="68" text-anchor="middle">GRPO</text>
+      <text class="s" x="495" y="87" text-anchor="middle">组内均值当基线</text>
+
+      <rect class="n-a" x="620" y="40" width="180" height="62" rx="10"/>
+      <text class="t" x="710" y="68" text-anchor="middle">Flow-GRPO</text>
+      <text class="s" x="710" y="87" text-anchor="middle">ODE→SDE，可采样</text>
+
+      <path class="ln" d="M170 71 H216" marker-end="url(#m3)"/>
+      <path class="ln" d="M370 71 H416" marker-end="url(#m3)"/>
+      <path class="ln" d="M570 71 H616" marker-end="url(#m3)"/>
+
+      <rect class="n-d" x="20" y="150" width="150" height="54" rx="10"/>
+      <text class="t" x="95" y="175" text-anchor="middle">DPO</text>
+      <text class="s" x="95" y="193" text-anchor="middle">只用成对偏好数据</text>
+      <path class="ln-w dash" d="M95 102 V146"/>
+      <text class="s" x="200" y="176">旁支：不采样、不训奖励模型，便宜，但只能吃分布内的离线数据。</text>
+
+      <path class="ln" d="M710 102 V232"/>
+      <path class="ln" d="M108 232 H693"/>
+      <path class="ln" d="M108 232 V246" marker-end="url(#m3)"/>
+      <path class="ln" d="M303 232 V246" marker-end="url(#m3)"/>
+      <path class="ln" d="M498 232 V246" marker-end="url(#m3)"/>
+      <path class="ln" d="M693 232 V246" marker-end="url(#m3)"/>
+      <text class="s" x="400" y="224" text-anchor="middle">都在抠同一件事：rollout 太贵</text>
+
+      <rect class="n" x="20" y="250" width="175" height="58" rx="10"/>
+      <text class="t" x="108" y="275" text-anchor="middle">MixGRPO</text>
+      <text class="s" x="108" y="294" text-anchor="middle">前段 ODE / 后段 SDE</text>
+
+      <rect class="n" x="215" y="250" width="175" height="58" rx="10"/>
+      <text class="t" x="303" y="275" text-anchor="middle">BranchGRPO</text>
+      <text class="s" x="303" y="294" text-anchor="middle">树状共享前缀</text>
+
+      <rect class="n" x="410" y="250" width="175" height="58" rx="10"/>
+      <text class="t" x="498" y="275" text-anchor="middle">TempFlow-GRPO</text>
+      <text class="s" x="498" y="294" text-anchor="middle">按时间步加权</text>
+
+      <rect class="n" x="605" y="250" width="175" height="58" rx="10"/>
+      <text class="t" x="693" y="275" text-anchor="middle">Flash-GRPO</text>
+      <text class="s" x="693" y="294" text-anchor="middle">同一步内部分组</text>
+
+      <line class="divider" x1="20" y1="330" x2="800" y2="330"/>
+      <text class="s" x="20" y="322">另一类解法：不从采样路径下手</text>
+
+      <rect class="n-w" x="20" y="342" width="380" height="48" rx="10"/>
+      <text class="t" x="38" y="362">DiffusionNFT · 换范式</text>
+      <text class="s" x="38" y="379">不算轨迹 log-prob，改前向加噪 + 正负样本对比</text>
+
+      <rect class="n-w" x="420" y="342" width="380" height="48" rx="10"/>
+      <text class="t" x="438" y="362">GRPO-Guard / CPS · 打补丁</text>
+      <text class="s" x="438" y="379">修 clip 失效；给 SDE 的噪声系数定规矩</text>
+    </svg>
+    </div>
+    <figcaption><b>两条线读法：</b>横向是「主干」—— 每次换代都在换「基线从哪来」；纵向是「2025 年的分支」—— 全部在解决 rollout 成本。底部两个是例外：一个绕开概率计算，一个只修补数值稳定性。</figcaption>
+  </figure>
+
+  <ul class="tl">
+    <li><span class="y">2017</span> <b>PPO</b>：actor 生成、critic 估基线、clip 限制更新幅度。稳，但要养四个模型（策略、价值、奖励、参考）。</li>
+    <li><span class="y">2023</span> <b>DPO</b>：跳过采样和奖励模型，直接拿「好/坏」成对数据做监督式优化。便宜，但只能用离线数据。</li>
+    <li><span class="y">2023</span> <b>DDPO / DPOK</b>：第一次把扩散采样过程当成多步决策，用策略梯度直接优化图像奖励。证明了「扩散模型可以 RL」，但极贵。</li>
+    <li><span class="y">2024</span> <b>GRPO</b>：DeepSeekMath 提出。把 critic 删掉，用同一道题的 G 个样本的均值/标准差当基线。省一个模型，训练稳定。</li>
+    <li><span class="y">2025</span> <b>Flow-GRPO / DanceGRPO</b>：把 GRPO 搬到扩散与整流流上。关键动作是把确定性 ODE 换成等价 SDE，让轨迹可采样、可算概率。</li>
+    <li><span class="y">2025 下半年</span> <b>MixGRPO / BranchGRPO / TempFlow-GRPO / Flash-GRPO</b>：全在抠同一件事——rollout 太贵。混合采样、树状共享前缀、时间步重要性、同时间步分组，各切一刀。</li>
+    <li><span class="y">2025 下半年</span> <b>GRPO-Guard / DiffusionNFT / CPS</b>：前两个解决「训练久了反而变差」，CPS 解决「SDE 噪声加多少」。属于稳定性补丁。</li>
+    <li><span class="y">2026</span> <b>全模态扩展</b>：从图像扩到视频、音视频联合（H3 这类），奖励从单一美学分扩到「文本-视频-音频」多模态一致性。</li>
+  </ul>
+
+  <div class="note"><b>怎么记：</b>PPO 是「请助教估分」，DPO 是「只看出分后的排名，不再考试」，GRPO 是「不请助教，直接看班里这 8 个人的平均分」。Flow-GRPO 之后的所有工作，都是在这个班上想办法「少考几次、少算几遍」。</div>
+</section>
+
+<section id="s3">
+  <h2><span class="num">3</span>GRPO 到底改了什么</h2>
+  <p class="lead">只改了一件事：把「优势」的算法从「减 critic 的预测」换成「减同组平均分」。其他都是 PPO 的老配方。</p>
+
+  <div class="formula"><span class="c"># 1. 同一道题 q，采样 G 条回答，各打一个分 r</span>
+r_1, r_2, ..., r_G
+
+<span class="c"># 2. 组内标准化，得到优势（这就是「及格线」）</span>
+A_i = (r_i − mean(r_1..r_G)) / (std(r_1..r_G) + ε)
+
+<span class="c"># 3. PPO 式裁剪目标 + KL 约束</span>
+ρ_i = π_θ(o_i|q) / π_old(o_i|q)
+L   = −E[ min(ρ_i·A_i, clip(ρ_i, 1−ε, 1+ε)·A_i) ] + β·KL(π_θ ‖ π_ref)</div>
+
+  <p>注意三个细节，它们解释了很多后续论文的动机：</p>
+
+  <figure class="fig">
+    <div class="fig-h">Fig 4 · 同一道题采 8 条，优势怎么来的</div>
+    <div class="figbody">
+    <svg class="fx" viewBox="0 0 820 262" role="img" aria-label="八条样本的奖励柱状图与组内标准化后的优势">
+      <line class="divider" x1="60" y1="60" x2="560" y2="60" stroke-dasharray="0"/>
+      <line class="divider" x1="60" y1="96" x2="560" y2="96"/>
+      <line class="divider" x1="60" y1="133" x2="560" y2="133"/>
+      <line class="divider" x1="60" y1="169" x2="560" y2="169"/>
+      <line class="divider" x1="60" y1="205" x2="560" y2="205" stroke-dasharray="0"/>
+      <text class="tm" x="52" y="64" text-anchor="end">8</text>
+      <text class="tm" x="52" y="100" text-anchor="end">6</text>
+      <text class="tm" x="52" y="137" text-anchor="end">4</text>
+      <text class="tm" x="52" y="173" text-anchor="end">2</text>
+      <text class="tm" x="52" y="209" text-anchor="end">0</text>
+
+      <rect class="bar-b" x="68" y="93" width="44" height="112" rx="3"/>
+      <rect class="bar-a" x="129.5" y="76" width="44" height="129" rx="3"/>
+      <rect class="bar-b" x="191" y="100" width="44" height="105" rx="3"/>
+      <rect class="bar-a" x="252.5" y="71" width="44" height="134" rx="3"/>
+      <rect class="bar-a" x="314" y="80" width="44" height="125" rx="3"/>
+      <rect class="bar-b" x="375.5" y="87" width="44" height="118" rx="3"/>
+      <rect class="bar-a" x="437" y="64" width="44" height="141" rx="3"/>
+      <rect class="bar-b" x="498.5" y="96" width="44" height="109" rx="3"/>
+
+      <text class="tm" x="90" y="88" text-anchor="middle">6.2</text>
+      <text class="tm" x="151.5" y="71" text-anchor="middle">7.1</text>
+      <text class="tm" x="213" y="95" text-anchor="middle">5.8</text>
+      <text class="tm" x="274.5" y="66" text-anchor="middle">7.4</text>
+      <text class="tm" x="336" y="75" text-anchor="middle">6.9</text>
+      <text class="tm" x="397.5" y="82" text-anchor="middle">6.5</text>
+      <text class="tm" x="459" y="59" text-anchor="middle">7.8</text>
+      <text class="tm" x="520.5" y="91" text-anchor="middle">6.0</text>
+
+      <line x1="60" y1="83" x2="560" y2="83" stroke="var(--accent)" stroke-width="1.2" stroke-dasharray="6 4"/>
+      <text class="t2" x="60" y="77">均值 6.71</text>
+
+      <text class="tm" x="90" y="222" text-anchor="middle">①</text>
+      <text class="tm" x="151.5" y="222" text-anchor="middle">②</text>
+      <text class="tm" x="213" y="222" text-anchor="middle">③</text>
+      <text class="tm" x="274.5" y="222" text-anchor="middle">④</text>
+      <text class="tm" x="336" y="222" text-anchor="middle">⑤</text>
+      <text class="tm" x="397.5" y="222" text-anchor="middle">⑥</text>
+      <text class="tm" x="459" y="222" text-anchor="middle">⑦</text>
+      <text class="tm" x="520.5" y="222" text-anchor="middle">⑧</text>
+
+      <rect class="n-d" x="586" y="52" width="214" height="150" rx="10"/>
+      <text class="t2" x="602" y="76">组内标准化</text>
+      <text class="tm" x="602" y="100">A = (r − 6.71) / 0.66</text>
+      <text class="s" x="602" y="124">绿色 4 条：正优势 → 推高</text>
+      <text class="s" x="602" y="144">灰色 4 条：负优势 → 压低</text>
+      <text class="s" x="602" y="168">8 条全一样时 std≈0，</text>
+      <text class="s" x="602" y="186">优势被放大成纯噪声。</text>
+
+      <text class="s" x="60" y="248">绝对分数不重要，重要的是「在这一组里排第几」—— 这就是 GRPO 敢删掉 critic 的原因。</text>
+    </svg>
+    </div>
+    <figcaption><b>注意两根轴的含义不同。</b>柱高是奖励的绝对值（6~8 分），虚线是这 8 条的均值；真正的训练信号是每根柱离虚线多远、朝哪个方向，而不是它本身有多高。</figcaption>
+  </figure>
+
+  <div class="grid2">
+    <div class="stat"><div class="big">细节 1</div><small><b>除以 std 是把双刃剑。</b>奖励尺度被抹平，学习率好调；但如果一组里 8 个样本得分几乎一样（std≈0），优势会被放大成噪声。这就是「组内无方差」问题。</small></div>
+    <div class="stat"><div class="big">细节 2</div><small><b>G 不能太小。</b>G=2 时均值只有两个点，基线很粗；G 越大越准，但 rollout 成本线性增长。视频场景通常卡在 8~16。</small></div>
+    <div class="stat"><div class="big">细节 3</div><small><b>不需要 critic，但需要 log-prob。</b>语言模型算 token 概率很容易，扩散模型算整条轨迹概率很难——这正是第 4 节那堵墙。</small></div>
+    <div class="stat"><div class="big">细节 4</div><small><b>KL 是刹车。</b>β 太小→跑飞、画面崩；β 太大→学不动。实践中常配合「参考模型定期同步」而不是死磕 β。</small></div>
+  </div>
+
+  <div class="wrap-t">
+  <table>
+    <tr><th>对比项</th><th>PPO</th><th>GRPO</th></tr>
+    <tr><td>需要的模型</td><td>策略 + 价值 + 奖励 + 参考（4 个）</td><td>策略 + 奖励 + 参考（3 个）</td></tr>
+    <tr><td>基线来源</td><td>critic 预测的 V(s)</td><td>同组样本均值</td></tr>
+    <tr><td>显存</td><td>高（critic 常与策略同规模）</td><td>低约 1/3</td></tr>
+    <tr><td>样本效率</td><td>每题采 1 条也能学</td><td>每题必须采一组（G≥4）</td></tr>
+    <tr><td>主要风险</td><td>critic 估不准 → 优势失真</td><td>组内全对/全错 → 优势为 0</td></tr>
+  </table>
+  </div>
+</section>
+
+<section id="s4">
+  <h2><span class="num">4</span>为什么扩散模型不能直接套 GRPO</h2>
+  <p class="lead">语言模型是「一个词一个词往外蹦」，扩散模型是「一团噪点反复擦几十遍」。麻烦出在擦的方式上：现在这些模型擦得太「死」—— 每一步都分毫不差。而 RL 需要两样东西：<b>多试几次能试出不同结果</b>，以及<b>知道这次成功的把握有多大</b>。这两种东西它都给不了。</p>
+
+  <h3>用大白话说，卡在三件事上</h3>
+  <div class="card">
+    <dl class="kv">
+      <dt>卡点 1 没得挑</dt><dd>给它同一张起始雪花图，重来一百次，第 1 步、第 2 步……一直到第 50 步，全都分毫不差，最后是同一张图。RL 的本事是「多试几次、把好的挑出来」，可试 8 次等于只试了 1 次 —— 没有差别，就分不出好坏。</dd>
+      <dt>卡点 2 没有「把握」这个数</dt><dd>RL 改参数前要问一句：模型走出这条路径的把握有多大？死路径的答案永远只有两个 —— 100% 或 0%，没有中间值。一个永远等于 100% 的数字，加减之后还是 0，梯度推不动任何参数。</dd>
+      <dt>卡点 3 谁该领功说不清</dt><dd>一张图好看，是第 3 步擦对了还是第 40 步？几十步共用一个总分，功劳分不下去。这也是 PPO 要额外请一个「助教估分」（价值网络）的原因。</dd>
+    </dl>
+  </div>
+
+  <div class="note"><b>把术语换成人话：</b>上面说的「死路径」，论文里叫 <b>确定性 ODE</b>；「把握多大」这个数，论文里叫 <b>概率 / log-prob</b>。名字吓人，事情就是你刚才读到的这两句。</div>
+
+  <h3>还有一堵「钱墙」</h3>
+  <p>语言模型一个 rollout 是几百个 token；视频模型一个 rollout 是几十步 × 每步一次 33B 前向。H3 这种模型，一条 768p、4 秒的样本就要跑满整条去噪链，batch 4 × n=16 就是 64 条。所以 2025 年之后的论文，一大半篇幅都在讲<b>怎么少跑</b>，而不是怎么把公式写得更漂亮。</p>
+
+  <div class="warn"><b>先记住这个判断：</b>扩散 RL 的瓶颈是采样成本与概率可算性，不是「奖励设计得多花哨」。看到一篇新论文，先问它动了这两件事里的哪一件。</div>
+</section>
+
+<section id="s5">
+  <h2><span class="num">5</span>Flow-GRPO 的两把钥匙</h2>
+  <p class="lead">第一把钥匙把「没随机性」变成「有随机性」，第二把钥匙把「太贵」变成「还能接受」。</p>
+
+  <h3>钥匙一：每擦一步，随机抖一下</h3>
+  <p>如果只想记一句话：<b>原来的擦法是死路径，每步随机抖一下，就有了岔路。</b>论文把这个「抖过之后」的版本叫 SDE，把原来那个叫 ODE —— 名字先不用管，事情就是这么件小事。</p>
+  <p>抖多大也有讲究。抖动是对称的、平均为零：有人往左偏 5 厘米，就有人往右偏 5 厘米，平均下来还在原地。所以<b>整体该出什么图没变，只是每条具体路径变得独一无二</b>。好比一条走廊，让 1000 个人从这头走到那头，每人每步随机左右晃几厘米 —— 走完人群还是沿走廊前进，但每个人脚印都不一样，于是才有「哪种走法更好」可评。</p>
+  <div class="card">
+    <dl class="kv">
+      <dt>有得挑了</dt><dd>同一句 prompt、同一张起始噪点，也能采出 G 个不同结果，组内比较才有意义。</dd>
+      <dt>有「把握」可谈了</dt><dd>每一步的抖动都是随机的，所以「这次抖成这样」的把握能一步步乘出来（取对数就是相加），RL 才有东西可调。</dd>
+      <dt>抖动幅度可调</dt><dd>抖多大是一个旋钮：调到 0 就退回原来的死路径，抖太猛画面会糊。实践里常用 0.7~0.9 这一档。</dd>
+    </dl>
+  </div>
+
+  <figure class="fig">
+    <div class="fig-h">Fig 5 · ODE 与 SDE 的分叉</div>
+    <div class="figbody">
+    <svg class="fx" viewBox="0 0 820 340" role="img" aria-label="确定性 ODE 只有一条路径，SDE 每步随机抖动产生多条可比较的样本">
+      <defs><marker id="m5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah" d="M0 0 L10 5 L0 10 z"/></marker></defs>
+
+      <text class="t2" x="20" y="26">ODE · 确定性</text>
+      <text class="s" x="118" y="26">每步只按模型算出的方向走</text>
+
+      <rect class="n" x="20" y="42" width="108" height="44" rx="9"/>
+      <text class="tm" x="74" y="69" text-anchor="middle">x_T</text>
+      <path class="ln" d="M128 64 H156" marker-end="url(#m5)"/>
+      <rect class="n" x="160" y="42" width="92" height="44" rx="9"/>
+      <text class="tm" x="206" y="69" text-anchor="middle">x_t−1</text>
+      <path class="ln" d="M252 64 H280" marker-end="url(#m5)"/>
+      <rect class="n" x="284" y="42" width="92" height="44" rx="9"/>
+      <text class="tm" x="330" y="69" text-anchor="middle">x_t−2</text>
+      <path class="ln" d="M376 64 H404" marker-end="url(#m5)"/>
+      <rect class="n" x="408" y="42" width="56" height="44" rx="9"/>
+      <text class="tm" x="436" y="69" text-anchor="middle">…</text>
+      <path class="ln" d="M464 64 H492" marker-end="url(#m5)"/>
+      <rect class="n" x="496" y="42" width="80" height="44" rx="9"/>
+      <text class="tm" x="536" y="69" text-anchor="middle">x_0</text>
+
+      <text class="s" x="596" y="60">重放一万次</text>
+      <text class="s" x="596" y="78">走的是同一条线</text>
+
+      <text class="s" x="20" y="114">没有随机性 → 组内 G 条样本完全一样 → 比不出谁更好，策略梯度恒为零。</text>
+      <path class="divider" d="M20 132 H800"/>
+
+      <text class="t2" x="20" y="158">SDE · 同一个起点</text>
+      <text class="s" x="160" y="158">每步撒一撮对称噪声，平均仍为零</text>
+
+      <rect class="n" x="20" y="192" width="108" height="46" rx="9"/>
+      <text class="tm" x="74" y="221" text-anchor="middle">x_T（同一份）</text>
+
+      <path class="ln-a" d="M128 215 C172 215 214 176 294 176"/>
+      <path class="ln" d="M128 215 C172 215 216 214 294 214"/>
+      <path class="ln" d="M128 215 C172 215 216 252 294 252"/>
+      <path class="ln" d="M128 215 C172 215 214 290 294 290"/>
+
+      <circle class="bar-a" cx="298" cy="176" r="4.5"/>
+      <circle class="bar-b" cx="298" cy="214" r="4.5"/>
+      <circle class="bar-b" cx="298" cy="252" r="4.5"/>
+      <circle class="bar-b" cx="298" cy="290" r="4.5"/>
+
+      <rect class="n" x="320" y="160" width="150" height="32" rx="8"/>
+      <text class="tm" x="332" y="181">①  r = 7.4</text>
+      <rect class="n" x="320" y="198" width="150" height="32" rx="8"/>
+      <text class="tm" x="332" y="219">②  r = 6.2</text>
+      <rect class="n" x="320" y="236" width="150" height="32" rx="8"/>
+      <text class="tm" x="332" y="257">③  r = 7.1</text>
+      <rect class="n" x="320" y="274" width="150" height="32" rx="8"/>
+      <text class="tm" x="332" y="295">④  r = 5.8</text>
+
+      <path class="ln" d="M470 176 H512" marker-end="url(#m5)"/>
+      <path class="ln" d="M470 214 H512" marker-end="url(#m5)"/>
+      <path class="ln" d="M470 252 H512" marker-end="url(#m5)"/>
+      <path class="ln" d="M470 290 H512" marker-end="url(#m5)"/>
+
+      <rect class="n-a" x="516" y="166" width="176" height="100" rx="10"/>
+      <text class="t2" x="604" y="196" text-anchor="middle">组内比较</text>
+      <text class="s" x="604" y="220" text-anchor="middle">均值当及格线</text>
+      <text class="tm" x="604" y="246" text-anchor="middle">A = (r − mean) / std</text>
+
+      <text class="s" x="20" y="326">σ 是旋钮：调到 0 退回 ODE，抖太猛画面会糊；实践常用 0.7~0.9 这一档。</text>
+    </svg>
+    </div>
+    <figcaption><b>一句话读法：</b>左边那条链每个节点只连出下一根箭头，右边那个起点一口气分出四条路 —— RL 要的正是「同一个问题、几种不同答案」，否则组内无从比较。注意抖动是对称的，人群整体走向不变，变的只是每一条具体路径。</figcaption>
+  </figure>
+
+  <div class="formula"><span class="c"># 确定性 ODE（原始采样器）：死路径，每步只按模型算的方向走</span>
+x_{t−1} = x_t − v_θ(x_t, t)·Δt
+
+<span class="c"># 等价 SDE：只多了最后一项，就是每步撒的那一撮随机雪花</span>
+x_{t−1} = x_t − v_θ(x_t, t)·Δt + σ_t·√Δt·ε,   ε ~ N(0, I)
+
+<span class="c"># 两式只差末尾的 + σ_t·√Δt·ε；σ=0 时一个字都不差，完全退回 ODE</span></div>
+
+  <h3>钥匙二：减少「要训练的去噪步」</h3>
+  <p>一条轨迹 50 步，没必要 50 步都参与更新。Flow-GRPO 的做法是<b>随机抽一段步数</b>（Denoising Reduction）来训练，其余步照常采样但不回传梯度。再进一步是 <b>Flow-GRPO-Fast</b>：只在<b>单个时间步</b>上让 G 条轨迹分叉，后半段共享确定性轨迹——一次前向变成 G 次前向的只有一步，成本骤降。</p>
+
+  <div class="note"><b>一个容易忽略的参数：</b>CPS（Coefficients-Preserving Sampling）指出，噪声强度不能随便取。它需要与采样器的系数保持匹配，论文里给的经验值在 <code>noise_level ≈ 0.8</code> 附近。取错了不会报错，只会让「奖励涨、画面糊」同时发生。</div>
+
+  <div class="warn"><b>顺序别搞反：</b>先确认 SDE 版本能正常出图（关掉 RL，只改采样器，肉眼对比）。这一步不过关，后面所有训练曲线都不可信。</div>
+</section>
+
+<section id="s6">
+  <h2><span class="num">6</span>2025-2026 的改进树</h2>
+  <p class="lead">这些工作几乎都在回答同一个问题：<b>怎么在有限算力下，让组内比较既便宜又有信号。</b>按「它动了哪一刀」来记最省力。</p>
+
+  <div class="wrap-t">
+  <table>
+    <tr><th style="width:150px">方法</th><th>动的那一刀</th><th>一句话理解</th></tr>
+    <tr><td><b>DanceGRPO</b></td><td>统一表述</td><td>把扩散和整流流都写成 SDE，图像/视频/I2V 共用一套实现。工程上最值得先读的代码库。</td></tr>
+    <tr><td><b>MixGRPO</b></td><td>采样路径</td><td>前段用 ODE 省算力，后段用 SDE 做探索，再加滑动窗口只训窗口内的步。</td></tr>
+    <tr><td><b>BranchGRPO</b></td><td>轨迹共享</td><td>树状分叉：多条轨迹共享前缀，只在关键节点分开，rollout 去重后成本大降。</td></tr>
+    <tr><td><b>TempFlow-GRPO</b></td><td>信用分配</td><td>按时间步重要性加权，并给分叉过程加中间奖励，缓解「几十步共享一个分」。</td></tr>
+    <tr><td><b>Flash-GRPO</b></td><td>分组方式</td><td>在同一个时间步内分组比较，再做时间梯度校正，报告约 6× 加速。</td></tr>
+    <tr><td><b>GRPO-Guard</b></td><td>数值稳定性</td><td>发现重要性比率系统性偏小，导致 clip 形同虚设、模型过优化。用 RatioNorm + 梯度重加权修。</td></tr>
+    <tr><td><b>DiffusionNFT</b></td><td>换范式</td><td>不做轨迹 log-prob，改用「前向加噪 + 正负样本对比」，因此可以直接套黑盒采样器。</td></tr>
+    <tr><td><b>CPS</b></td><td>噪声强度</td><td>给 SDE 的噪声系数定规矩，避免「分涨了图糊了」。</td></tr>
+  </table>
+  </div>
+
+  <h3>三条实用结论</h3>
+  <div class="grid2">
+    <div class="stat"><div class="big">结论 1</div><small><b>先降成本，再谈效果。</b>Branch/Mix/Flash 这类工作的收益是「同样的卡能多跑几轮」，对个人复现比刷点更重要。</small></div>
+    <div class="stat"><div class="big">结论 2</div><small><b>训练后期变差是普遍现象。</b>GRPO-Guard 指出的 clip 失效不是个例，长训练务必监控「代理分 vs 金标分」两条曲线。</small></div>
+    <div class="stat"><div class="big">结论 3</div><small><b>算不出 log-prob 时，DiffusionNFT 是逃生通道。</b>它绕开概率计算，代价是失去部分理论保证。</small></div>
+    <div class="stat"><div class="big">结论 4</div><small><b>别一次改三个地方。</b>换采样器、换奖励、换分组方式分开验证，否则出错时无法定位。</small></div>
+  </div>
+</section>
+
+<div class="part"><span>PART 2</span><b>落地：奖励、训练与排错</b><i>7–12 节</i></div>
+
+<section id="s7">
+  <h2><span class="num">7</span>开源项目地图</h2>
+  <p class="lead">按「从能跑到能改」排序，不要一上来就啃最大的框架。</p>
+
+  <div class="wrap-t">
+  <table>
+    <tr><th>项目</th><th>定位</th><th>适合谁</th></tr>
+    <tr><td><b>yifan123/flow_grpo</b></td><td>Flow-GRPO 官方实现，SD3/Flux 上可跑</td><td>第一次跑通扩散 RL 的人（首选）</td></tr>
+    <tr><td><b>XueZeyue/DanceGRPO</b></td><td>统一 SDE 表述，图像/视频/I2V 都覆盖</td><td>要扩到视频的人</td></tr>
+    <tr><td><b>huggingface/trl</b></td><td>通用 RL 工具箱（PPO/DPO/GRPO）</td><td>想看清 loss 怎么写的人</td></tr>
+    <tr><td><b>volcengine/verl</b></td><td>大模型 RL 训练框架，多机多卡</td><td>要上规模、要接 vLLM 的人</td></tr>
+    <tr><td><b>verl-project/verl-omni</b></td><td>verl 的全模态分支，含 DiffusionNFT</td><td>做音视频联合 RL 的人（H3 路线 B）</td></tr>
+    <tr><td><b>radixark/miles_diffusion</b></td><td>miles 的扩散分支，含 Flow-GRPO 配方</td><td>做视频 LoRA RL 的人（H3 路线 A）</td></tr>
+    <tr><td><b>hao-ai-lab/FastVideo</b></td><td>视频生成推理加速</td><td>rollout 太慢、想省时间的人</td></tr>
+  </table>
+  </div>
+
+  <h3>建议的上手顺序</h3>
+  <div class="step"><div class="n">1</div><div class="b"><b>纯 numpy 建立直觉</b>先跑本目录的 <code>toy_grpo.py</code>，看「有基线」和「没基线」的差距，10 秒出结果。</div></div>
+  <div class="step"><div class="n">2</div><div class="b"><b>图像上跑通一次</b>用 flow_grpo 的最小配置，1~2 张卡、LoRA、PickScore，先把「奖励曲线能涨」这件事看到。</div></div>
+  <div class="step"><div class="n">3</div><div class="b"><b>换成自己的奖励</b>把 PickScore 替换成 OCR 或 GenEval，观察是否出现 reward hacking。这一步最能建立判断力。</div></div>
+  <div class="step"><div class="n">4</div><div class="b"><b>再上视频</b>切到 DanceGRPO 或 miles_diffusion，注意显存与 rollout 时间的量级变化。</div></div>
+
+  <div class="formula"><span class="c"># 典型启动方式（以 flow_grpo 为例，参数以仓库 README 为准）</span>
+accelerate launch --num_processes 2 scripts/train_grpo.py \
+  --config config/flow_grpo_sd3.py \
+  --reward_fn pickscore \
+  --num_image_per_prompt 16 \
+  --resolution 512 \
+  --lora_rank 32</div>
+</section>
+
+<section id="s8">
+  <h2><span class="num">8</span>奖励怎么设计（比算法更重要）</h2>
+  <p class="lead">同一套 GRPO 代码，换个奖励函数就是另一篇论文的效果。奖励选错，算法再好也只会更快地跑偏。</p>
+
+  <div class="wrap-t">
+  <table>
+    <tr><th>类型</th><th>代表</th><th>管什么</th><th>坑</th></tr>
+    <tr><td>人类偏好分</td><td>PickScore / HPSv2 / HPSv3</td><td>整体美观、像不像人喜欢的图</td><td>容易被「高饱和、强对比」骗分</td></tr>
+    <tr><td>图文一致性</td><td>ImageReward / UnifiedReward</td><td>prompt 里的物体、数量、属性</td><td>细粒度计数仍然弱</td></tr>
+    <tr><td>规则校验</td><td>GenEval / OCR / 检测器</td><td>可验证的硬指标（文字、个数）</td><td>规则太窄，模型会只优化那一点</td></tr>
+    <tr><td>视频质量</td><td>VideoAlign / VideoScore / VisionReward</td><td>时序一致性、运动合理性</td><td>打分慢，常成为瓶颈</td></tr>
+    <tr><td>音频-文本</td><td>CLAP</td><td>声音和描述是否匹配</td><td>对音质细节不敏感</td></tr>
+    <tr><td>音频-视频</td><td>ImageBind</td><td>口型/动作与声音是否同步</td><td>跨模态对齐偏粗</td></tr>
+  </table>
+  </div>
+
+  <h3>三条原则</h3>
+  <div class="step"><div class="n">1</div><div class="b"><b>奖励要「难骗」。</b>先用小学习率跑 200 步，看分数涨的同时人眼是否也觉得变好。这条不过，别加步数。</div></div>
+  <div class="step"><div class="n">2</div><div class="b"><b>至少两个奖励，且量纲要对齐。</b>加权求和前先各自归一化，否则某一项会独占梯度。H3 的路线 B 就是 CLAP + ImageBind 两项。</div></div>
+  <div class="step"><div class="n">3</div><div class="b"><b>留一个「金标」不做训练目标。</b>比如人工抽检 50 条，只用来监控。代理分涨、金标分跌，就是奖励黑客的明确信号。</div></div>
+
+  <div class="warn"><b>最常见的翻车：</b>奖励模型本身有偏（比如偏爱某种画风），RL 会把这个偏好放大到极端。表现是「分数创新高，画面全是一个味道」。</div>
+</section>
+
+<section id="s9">
+  <h2><span class="num">9</span>落到 MiniMax H3：一条能跑的路</h2>
+  <p class="lead">先认清这个模型的形状，再决定 RL 挂在哪。H3 不是一个普通 DiT，它是「文本-视频-音频」打包成一条序列的联合模型，这决定了你做 RL 时必须小心拆包。</p>
+
+  <h3>模型事实（做 RL 前必须知道的）</h3>
+  <div class="card">
+    <dl class="kv">
+      <dt>主干</dt><dd>33B dense 单流 DiT，其中约 13B 在 AdaLN 分支；参数量大，全参训练不现实，LoRA 是默认选择。</dd>
+      <dt>文本编码</dt><dd>Qwen3-VL-32B 第 50 层输出，不是 CLIP/T5，提特征的方式要和官方推理脚本保持一致。</dd>
+      <dt>视频 VAE</dt><dd>VisualVAE f16t4d24，24 通道，patchify 1×2×2。潜在张量的形状算错一步，整条链路全错。</dd>
+      <dt>音频 VAE</dt><dd>AudioVAE 把 32kHz 压到约 40Hz，左右声道独立编码。</dd>
+      <dt>输出规格</dt><dd>24 FPS、4~15 秒、768p；2K 是用 in-context 再生成，不是直接一次出。</dd>
+      <dt>采样</dt><dd>CFG 已蒸馏，推理时 guidance scale 固定 1.0，不要沿用 SD 那套 3.5~7 的习惯。</dd>
+      <dt>时间步</dt><dd>用 data fraction（0~1 连续值），不是整数步号。写 SDE 时别把 t 当成 1..50。</dd>
+      <dt>速度方向</dt><dd>velocity 的符号与 diffusers 里的约定相反，直接搬公式会训成「反向去噪」。</dd>
+      <dt>序列组织</dt><dd>音视频 token 打包成一条 packed 序列，靠 3D MM-RoPE 区分模态与时空位置。</dd>
+    </dl>
+  </div>
+
+  <figure class="fig">
+    <div class="fig-h">Fig 6 · H3 的一条推理链路（RL 挂在哪）</div>
+    <div class="figbody">
+    <svg class="fx" viewBox="0 0 820 340" role="img" aria-label="文本、视频、音频三路输入分别编码后打包成一条序列送入 DiT，再分别解码，RL 只改 DiT 上的 LoRA">
+      <defs><marker id="m6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah" d="M0 0 L10 5 L0 10 z"/></marker></defs>
+
+      <text class="s" x="16" y="28">输入</text>
+      <text class="s" x="170" y="28">编码</text>
+      <text class="s" x="360" y="28">打包</text>
+      <text class="s" x="520" y="28">主干</text>
+      <text class="s" x="700" y="28">解码</text>
+
+      <rect class="n" x="16" y="42" width="110" height="42" rx="9"/>
+      <text class="t" x="71" y="68" text-anchor="middle">prompt</text>
+      <rect class="n" x="16" y="132" width="110" height="42" rx="9"/>
+      <text class="t" x="71" y="158" text-anchor="middle">首帧 / 参考图</text>
+      <rect class="n" x="16" y="222" width="110" height="42" rx="9"/>
+      <text class="t" x="71" y="248" text-anchor="middle">音频（可选）</text>
+
+      <path class="ln" d="M126 63 H166" marker-end="url(#m6)"/>
+      <path class="ln" d="M126 153 H166" marker-end="url(#m6)"/>
+      <path class="ln" d="M126 243 H166" marker-end="url(#m6)"/>
+
+      <rect class="n" x="170" y="34" width="150" height="58" rx="9"/>
+      <text class="t" x="245" y="58" text-anchor="middle">Qwen3-VL-32B</text>
+      <text class="s" x="245" y="78" text-anchor="middle">取第 50 层输出</text>
+
+      <rect class="n" x="170" y="124" width="150" height="58" rx="9"/>
+      <text class="t" x="245" y="148" text-anchor="middle">VisualVAE</text>
+      <text class="tm" x="245" y="168" text-anchor="middle">f16t4d24 · 24 通道</text>
+
+      <rect class="n" x="170" y="214" width="150" height="58" rx="9"/>
+      <text class="t" x="245" y="238" text-anchor="middle">AudioVAE</text>
+      <text class="tm" x="245" y="258" text-anchor="middle">32 kHz → ~40 Hz</text>
+
+      <path class="ln" d="M320 63 H356" marker-end="url(#m6)"/>
+      <path class="ln" d="M320 153 H356" marker-end="url(#m6)"/>
+      <path class="ln" d="M320 243 H356" marker-end="url(#m6)"/>
+
+      <rect class="n-a" x="360" y="52" width="110" height="196" rx="10"/>
+      <text class="t2" x="415" y="82" text-anchor="middle">packed</text>
+      <text class="t" x="415" y="104" text-anchor="middle">一条序列</text>
+      <text class="s" x="415" y="126" text-anchor="middle">视频 token</text>
+      <text class="s" x="415" y="144" text-anchor="middle">+ 音频 token</text>
+      <text class="tm" x="415" y="180" text-anchor="middle">3D MM-RoPE</text>
+      <text class="s" x="415" y="200" text-anchor="middle">区分模态</text>
+      <text class="s" x="415" y="218" text-anchor="middle">与时空位置</text>
+
+      <path class="ln-a" d="M470 150 H516" marker-end="url(#m6)"/>
+
+      <rect class="n" x="520" y="52" width="150" height="196" rx="10"/>
+      <text class="t" x="595" y="84" text-anchor="middle">33B dense DiT</text>
+      <text class="s" x="595" y="106" text-anchor="middle">AdaLN 分支 ≈13B</text>
+      <text class="s" x="595" y="126" text-anchor="middle">≤15 s · 768p · 24 fps</text>
+      <text class="tm" x="595" y="158" text-anchor="middle">guidance = 1.0</text>
+      <text class="s" x="595" y="178" text-anchor="middle">CFG 已蒸馏，别调</text>
+      <text class="tm" x="595" y="208" text-anchor="middle">velocity 符号</text>
+      <text class="s" x="595" y="228" text-anchor="middle">与 diffusers 相反</text>
+
+      <path class="ln" d="M670 95 H696" marker-end="url(#m6)"/>
+      <path class="ln" d="M670 213 H696" marker-end="url(#m6)"/>
+
+      <rect class="n" x="700" y="66" width="104" height="58" rx="9"/>
+      <text class="t" x="752" y="90" text-anchor="middle">VisualVAE</text>
+      <text class="s" x="752" y="110" text-anchor="middle">decode → 视频</text>
+      <rect class="n" x="700" y="184" width="104" height="58" rx="9"/>
+      <text class="t" x="752" y="208" text-anchor="middle">AudioVAE</text>
+      <text class="s" x="752" y="228" text-anchor="middle">decode → 音频</text>
+
+      <rect class="n-d" x="16" y="276" width="788" height="52" rx="9"/>
+      <text class="s" x="32" y="300">RL 只改 DiT 上的 LoRA 权重：rollout 时记录每步 log-prob（需要 ODE→SDE），奖励在解包后的视频 / 音频上分别算。</text>
+      <text class="tm" x="32" y="318">常见做法是冻结音频分支；打包序列必须先按模态切开，再送进各自的奖励模型。</text>
+    </svg>
+    </div>
+    <figcaption><b>这张图解释了三件事：</b>① 为什么 latent 形状算错一步就全错 —— 三路输入最终要塞进同一条序列；② 为什么「音视频同步」不能靠单一奖励 —— 视频和音频解码后是两个独立产物；③ 为什么 RL 只训 LoRA —— 33B 主干里有 13B 在 AdaLN，全参不现实。</figcaption>
+  </figure>
+
+  <h3>CFG、AdaLN、adapter 头：SFT 到底在改哪里</h3>
+  <p>这三个词经常一起出现，说的其实是三件不同的事。</p>
+  <div class="card">
+    <dl class="kv">
+      <dt>CFG</dt><dd>让画面更听提示词的放大手段。每一步算两遍：一遍带完整提示词，一遍带空提示词，然后 <code>结果 = 空提示的结果 + s × (带提示的结果 − 空提示的结果)</code>。s 越大越听话、也越容易过曝，s=1 等于不加力。代价是每步前向两遍。</dd>
+      <dt>CFG 蒸馏</dt><dd>把「算两遍才有的效果」直接训进一遍里。H3 已经蒸馏过，所以推理固定 <code>guidance=1.0</code>。再手动填 5、7，等于在已经加过力的模型上再叠一层，结果是过曝或发灰，而不是更听话。</dd>
+      <dt>AdaLN 分支</dt><dd>DiT 里把「第几步 + 你要什么」压成一组缩放/平移参数，去调每个 block 的归一化层。H3 约 13B 参数在这里，它承载条件信息怎么影响主干。</dd>
+      <dt>反向 CFG</dt><dd>两种含义，都不是「符号写反」那种 bug：① <b>负向引导</b>——把空提示换成「你不想出现的东西」，<code>结果 = 负提示 + s × (正提示 − 负提示)</code>，作用是把它推离模糊/水印/低质量；② <b>反推编辑</b>——沿 CFG 路径把已有图/视频反推回噪声，再按新提示重画，保留构图只改内容。两者都要「能算两遍前向」，蒸馏过的 H3 直接调不出来。</dd>
+      <dt>adapter 头</dt><dd>夹在中间的小投影层：文本编码器输出 → DiT 维度的映射、新模态（音频/首帧/参考图）的入口投影、新任务的输出头。参数很少，但接上就必须单独训。</dd>
+    </dl>
+  </div>
+
+  <p>「SFT 要改 CFG 或 adapter 头」通常指下面三种情况，先分清是哪一种再动手。</p>
+  <div class="step"><div class="n">1</div><div class="b"><b>条件变了</b>加首帧、加音频、换文本编码器 → 输入维度对不上，必须新增 adapter 头，冻结主干只训这一小段。最常见也最正常。</div></div>
+  <div class="step"><div class="n">2</div><div class="b"><b>数据是用 CFG&gt;1 采的</b>数据分布和模型原生分布不一致，SFT 会学到错误配对。蒸馏过的模型要么全程 1.0，要么把 guidance 当条件重训 embedding，基本不划算。</div></div>
+  <div class="step"><div class="n">3</div><div class="b"><b>只是想调「听话程度」</b>别动 CFG，去调提示词或奖励权重。</div></div>
+
+  <div class="warn"><b>自查：</b>SFT 后画面发灰 / 过曝 / 越训越糊 → 先查 guidance 有没有被改；条件完全不起作用或报维度不匹配 → 查 adapter 头有没有接上。</div>
+
+  <h3>两条真实路线，按卡数选</h3>
+  <div class="wrap-t">
+  <table>
+    <tr><th style="width:120px">对比项</th><th>路线 A：Flow-GRPO</th><th>路线 B：DiffusionNFT</th></tr>
+    <tr><td>代码库</td><td>miles_diffusion（+ Flow-GRPO 配方，PR #154）</td><td>verl-omni（verl 全模态分支）</td></tr>
+    <tr><td>显卡</td><td>2 卡可跑</td><td>8 卡</td></tr>
+    <tr><td>训练范围</td><td>只训视频分支，音频分支冻结</td><td>T2VA / FL2VA 联合</td></tr>
+    <tr><td>奖励</td><td>PickScore（单奖励，先跑通）</td><td>CLAP（音-文）+ ImageBind（音-视）</td></tr>
+    <tr><td>LoRA</td><td>默认 rank，小规模</td><td>r=64 / alpha=128</td></tr>
+    <tr><td>分辨率</td><td>1344×768，107 帧</td><td>训练 256×384 / 验证 512×768，121 帧</td></tr>
+    <tr><td>组大小</td><td>batch 4 × n=16</td><td>n=16</td></tr>
+    <tr><td>报告结果</td><td>eval PickScore 0.806 → 峰值 0.816</td><td>reward 0.41 → 0.51</td></tr>
+  </table>
+  </div>
+
+  <p><b>怎么选：</b>只有 1~2 张卡、想先验证「这套流程在我这儿能不能跑」→ 路线 A。已经有 8 卡、目标是音视频同步质量 → 路线 B。两条都不要一上来就冲大分辨率。</p>
+
+  <h3>路线 A 的最小启动</h3>
+  <div class="formula"><span class="c"># 1. 环境与权重（具体版本见仓库 README）</span>
+git clone https://github.com/radixark/miles_diffusion &amp;&amp; cd miles_diffusion
+bash scripts/setup_h3.sh
+
+<span class="c"># 2. 先不训，只验证 SDE 采样能出片</span>
+python scripts/sample.py --ckpt MiniMax-H3 --sde --noise-level 0.8 \
+  --height 768 --width 1344 --frames 107 --out ./sde_check
+
+<span class="c"># 3. 单机 2 卡开跑（只训视频分支）</span>
+torchrun --nproc_per_node=2 train_grpo.py \
+  --model MiniMax-H3 \
+  --train-video-only \
+  --reward pickscore \
+  --group-size 16 --batch-size 4 \
+  --lora-rank 32 \
+  --denoise-train-ratio 0.5</div>
+
+  <h3>关键超参起点</h3>
+  <div class="wrap-t">
+  <table>
+    <tr><th>参数</th><th>建议起点</th><th>说明</th></tr>
+    <tr><td>group size (n)</td><td>16</td><td>低于 8 组内均值噪声大；高于 16 显存吃不消</td></tr>
+    <tr><td>noise level</td><td>0.8</td><td>CPS 经验值，配合 H3 的采样器系数</td></tr>
+    <tr><td>训练去噪步比例</td><td>0.3~0.5</td><td>只训一部分步，其余只采样不回传</td></tr>
+    <tr><td>学习率</td><td>1e-5 ~ 5e-5</td><td>LoRA 可略高，全参必须更低</td></tr>
+    <tr><td>KL 系数 β</td><td>0.01~0.04</td><td>先小后大，观察画面是否开始崩</td></tr>
+    <tr><td>clip ε</td><td>0.2</td><td>PPO 默认，先别改</td></tr>
+    <tr><td>分辨率</td><td>768p</td><td>边长必须是 32 的倍数，帧数满足 17n+5</td></tr>
+  </table>
+  </div>
+
+  <h3>奖励函数怎么写（路线 B 的双奖励）</h3>
+  <div class="formula"><span class="c"># 伪代码：先各自归一化，再加权；量纲不对齐会互相打架</span>
+r_text_audio = clap(audio, prompt)          <span class="c"># 0~1</span>
+r_av_sync    = imagebind(video, audio)      <span class="c"># 0~1</span>
+reward = 0.5 * norm(r_text_audio) + 0.5 * norm(r_av_sync)
+
+<span class="c"># 视频分支用 video latent，音频分支用 audio latent，</span>
+<span class="c"># 打包序列里要先按模态切开，再分别送进各自的奖励模型</span></div>
+
+  <h3>落地五步</h3>
+  <div class="step"><div class="n">1</div><div class="b"><b>先复现推理</b>不加任何 RL，用官方脚本出一条 768p、107 帧的样片，确认音视频都在。</div></div>
+  <div class="step"><div class="n">2</div><div class="b"><b>打开 SDE 再出一次</b>只改采样器，肉眼对比。画面明显变糊就先调 noise level，别急着训练。</div></div>
+  <div class="step"><div class="n">3</div><div class="b"><b>接奖励、跑 50 步</b>看 log-prob 差是否在 1e-4 量级、reward 是否有方差。全组同分说明奖励坏了。</div></div>
+  <div class="step"><div class="n">4</div><div class="b"><b>小规模正式训练</b>batch 4 × n=16，先跑 300 步，每 50 步存一次样片。</div></div>
+  <div class="step"><div class="n">5</div><div class="b"><b>加长训练前先验收</b>过第 10 节的六项检查，再决定是否加到 1000 步以上。</div></div>
+  <h3>后训练路线图：偏好、少步与高清恢复是三件事</h3>
+  <div class="wrap-t"><table>
+    <tr><th>要解决的问题</th><th>方法</th><th>改动在哪里</th><th>本地状态</th></tr>
+    <tr><td>让输出更符合奖励/偏好</td><td>Flow-GRPO、DiffusionNFT、SFT</td><td>Flow-GRPO：SDE + 组内奖励，PickScore 视频 LoRA；DiffusionNFT：前向加噪正负对，CLAP + ImageBind 联合音视频</td><td>分别见上方两卡视频方案与八卡 T2VA 方案；不等于少步蒸馏</td></tr>
+    <tr><td>减少 H3 生成步数</td><td>DMD、SGMD、dCM/DMD/rCM；外部 PDMD、DMAD、PTD 等</td><td>训练少步 student / adapter</td><td>本地 DMD、SGMD 有代码；rCM 有实验配置但无归档 checkpoint</td></tr>
+    <tr><td>低成本生成高分辨率</td><td>二阶段采样</td><td>改推理流程和 latent 尺度</td><td>不是后训练或 RL，见第 12 节</td></tr>
+    <tr><td>生成后补纹理</td><td>SeedVR / SeedVR2 / SwiftVR-family</td><td>独立视频恢复网络</td><td>增加后处理耗时，不减少 H3 NFE；SwiftVR 不等于官方 SeedVR2 checkpoint</td></tr>
+  </table></div>
+  <p class="note"><b>本地最新权重配方：</b>2026-11-10 Agnes 记录包含 FL2VA 与 REF2VA 两套 base + LoRA 组合；SGLang 归档端到端日志有依赖导入失败，当前线上健康状态未由这份材料证实。详见 <a href="h3.md">h3.md</a> 和第 13 节。</p>
+</section>
+
+<section id="s10">
+  <h2><span class="num">10</span>避坑清单与验收标准</h2>
+  <p class="lead">H3 这类大模型做 RL，九个坑里有八个不是算法问题，而是「约定对不上」。下面每条都对应一个具体的错误现象。</p>
+
+  <div class="wrap-t">
+  <table>
+    <tr><th style="width:170px">坑</th><th>现象</th><th>怎么查</th></tr>
+    <tr><td><b>沿用 SD 的 guidance</b></td><td>画面过曝或发灰</td><td>H3 的 CFG 已蒸馏，guidance 固定 1.0</td></tr>
+    <tr><td><b>把 t 当整数步号</b></td><td>训练不收敛，loss 抖动</td><td>H3 用 data fraction（0~1）</td></tr>
+    <tr><td><b>velocity 符号反了</b></td><td>越训越糊，像反向加噪</td><td>和官方 sample 脚本逐行对比符号</td></tr>
+    <tr><td><b>音视频没拆包</b></td><td>音频静默丢失，或奖励恒为 0</td><td>打印 packed 序列的形状与模态切片</td></tr>
+    <tr><td><b>LoRA 用了 all-linear</b></td><td>部分层没训到，效果远低于预期</td><td>H3 是 fused QKV，需手动映射模块名</td></tr>
+    <tr><td><b>条件帧没做 loss mask</b></td><td>I2V/FL2VA 下首帧被改坏</td><td>条件帧位置 loss 置 0</td></tr>
+    <tr><td><b>分辨率/帧数不合法</b></td><td>shape 报错或黑边</td><td>边长 32 的倍数，帧数 17n+5</td></tr>
+    <tr><td><b>音频采样率没校验</b></td><td>声音变调、时长对不上</td><td>统一 32kHz，AAC 编码后复查时长</td></tr>
+    <tr><td><b>LoRA 没同步回采样端</b></td><td>训练 reward 涨，固化后出片没变化</td><td>合并权重后重新采样对比</td></tr>
+  </table>
+  </div>
+
+  <h3>六项验收（缺一项都别加步数）</h3>
+  <div class="card">
+    <dl class="kv">
+      <dt>1 采样等价</dt><dd>σ=0 时 SDE 输出与原始 ODE 逐像素接近（允许极小误差）。</dd>
+      <dt>2 log-prob 可信</dt><dd>同一批样本重算两次，log-prob 差在 1e-4 量级以内。</dd>
+      <dt>3 奖励有方差</dt><dd>组内 16 条样本的奖励不能全相同，std 明显大于 0。</dd>
+      <dt>4 音视频都在</dt><dd>抽样 20 条，音频非静音、时长与视频一致。</dd>
+      <dt>5 画面不退化</dt><dd>代理分上升的同时，人工抽检的清晰度/结构不变差。</dd>
+      <dt>6 权重真生效</dt><dd>LoRA 合并后重新采样，输出确实变了，且不是变糊。</dd>
+    </dl>
+  </div>
+
+  <div class="warn"><b>最贵的错误：</b>跳过第 1、2 项直接开训。此时梯度可能来自一个错误的概率，训练曲线照样「好看」，但你拿到的模型是坏的，而且几百卡时已经烧掉了。</div>
+</section>
+
+<section id="s11">
+  <h2><span class="num">11</span>少步蒸馏：DMD 家族与注意力加速</h2>
+  <p class="lead">少步蒸馏训练能用更少次 DiT 前向完成生成的 student；注意力内核降低每次前向成本；二采改变前向发生的空间尺度。三者是不同开关，速度收益不能简单相乘。</p>
+  <h3>11.1 H3 本地 DMD：一次 student 更新</h3>
+  <p>本地 trainer 目标配置为 4-NFE LoRA。训练期有冻结 Teacher、Student 和可训练 Fake-score；推理期只保留 Student。Teacher score 与 fake score 的差估计 student 输出分布应移动的方向。</p>
+  <div class="step"><div class="n">1</div><div class="b"><b>生成。</b>Student 按配置的 4 个 NFE rollout 得到 latent G；随机抽 terminal step，梯度只经过最后一个 student step。</div></div>
+  <div class="step"><div class="n">2</div><div class="b"><b>扰动。</b>构造 <code>x_t=(1−σ)G+σε</code>，同一带噪样本分别送入冻结 Teacher 与 Fake-score。</div></div>
+  <div class="step"><div class="n">3</div><div class="b"><b>求校正方向。</b>按 H3 velocity 约定还原 <code>x0=x_t+σv</code>，计算 <code>g≈(x0_fake−x0_teacher)/mean(|G−x0_teacher|)</code>。</div></div>
+  <div class="step"><div class="n">4</div><div class="b"><b>更新 Student。</b>用 stop-gradient 伪目标 <code>G−g</code> 做平方损失，即 <code>L=1/2·||G−stopgrad(G−g)||²</code>。这是把分布梯度传回生成结果，不是拿 teacher 视频逐帧普通回归。</div></div>
+  <div class="step"><div class="n">5</div><div class="b"><b>更新 Fake。</b>Fake 拟合 student 生成样本的噪声/速度目标（代码对应 <code>G−ε</code>）。本地更新比为 student 1 次 : Fake 5 次。</div></div>
+  <p class="note">源码与 DMD loss：<a href="code/dmd/minimax_h3_trainer.py">H3 trainer</a>、同目录 <a href="code/dmd/math.py">math.py</a>；配置为 <a href="code/dmd/minimax_h3_t2av_dmd_lora.yaml">DMD YAML</a>。该配置是 4 NFE、768×1344×243，使用 prompt_cache 而不读成对真实视频。H3 使用连续 data-fraction 时间及自己的 velocity 符号；迁移公式前先核对坐标约定。</p>
+  <h3>11.2 DMD、DMD2、SGMD、rCM 并不是同一个算法</h3>
+  <div class="wrap-t"><table>
+    <tr><th>方法</th><th>训练信号/更新差别</th><th>H3 证据与边界</th></tr>
+    <tr><td><b>DMD</b></td><td>teacher-score 与 fake-score 的差给 student 分布梯度；原论文用 teacher 轨迹回归稳定 student</td><td>本地 H3 4-NFE LoRA；student:Fake=1:5</td></tr>
+    <tr><td><b>DMD2</b></td><td>在 DMD 上加入对抗判别训练、真实数据等稳定技巧；看论文和具体实现</td><td>本地 H3 trainer 不能仅因叫 DMD 就视为完整 DMD2</td></tr>
+    <tr><td><b>SGMD</b></td><td>生成器用 teacher-stop-gradient Fisher + negative-residual（NR）；fake-score 用 residual-contraction（RC）更新</td><td>本地 4 NFE，student:Fake 更新 1:1；phase2 为 704×1280、209 帧、λ=.05；student 步保留 fake prediction 到 latent 的梯度</td></tr>
+    <tr><td><b>dCM→DMD→rCM</b></td><td>Consistency Matching 初始化，再 DMD，按实验选 rectified CM 收尾</td><td>有 configs（4 NFE、fake ratio 5、lambda_dmd=.01），无归档 checkpoint/成功产物证据</td></tr>
+    <tr><td><b>PDMD</b></td><td>Progressive DMD 逐阶段压缩步数</td><td>公开论文/项目报告 H3 2/4-step；不是本地 trainer</td></tr>
+    <tr><td><b>DMAD</b></td><td>对抗式分布匹配构造 few-step 目标</td><td>公开项目报告 H3 4-step；不是本地 Fake-score DMD</td></tr>
+    <tr><td><b>PTD / VA-TDM</b></td><td>轨迹监督 / 多视角 teacher 蒸馏等独立路线</td><td>论文或外部项目进展，本地无线上权重证据</td></tr>
+  </table></div>
+  <p>SGMD trainer：<a href="code/sgmd/minimax_h3_sgmd_trainer.py">SGMD trainer</a>；正式 phase2 数字取自 <a href="code/sgmd/minimax_h3_t2av_sgmd_lora_formal_phase2.yaml">SGMD phase2 YAML</a>。早期配置用过 .1 和不同分辨率。Wan 论文的速度倍数不是本地 H3 端到端测量。</p>
+  <h3>11.3 SGMD：一次迭代的两个更新</h3>
+  <ol>
+    <li><b>Student rollout：</b>按随机终止点运行 4-NFE student，得到音视频 latent；加噪后让 Teacher 与 Fake-score 对同一状态预测。</li>
+    <li><b>Student 更新：</b>生成器目标是 teacher-stop-gradient Fisher loss + λ·NR（negative residual）。Fake 参数冻结，但 fake prediction 对输入保留梯度，校正信号可回到 student latent。</li>
+    <li><b>Fake 更新：</b>生成的 latent stop-gradient，用 λ·RC（residual contraction）更新 Fake-score。代码另算 velocity MSE 作为诊断项；优化器实际拿到的是 RC loss。</li>
+    <li><b>配置差异：</b>本地每轮 student:Fake=1:1；phase2 画布 704×1280×209、λ=.05。它不同于 DMD 的 1:5 更新节奏。</li>
+  </ol>
+  <h3>11.4 4 NFE 不代表“完整生成只跑了四次网络”</h3>
+  <p>NFE 指 student 部署时一次样本执行的 DiT 调用次数。训练还会调用 teacher、Fake 并做多次更新，训练开销高于部署；teacher/Fake 不随 student adapter 上线。LoRA 训练步数、采样 NFE、优化器更新次数是三种不同的“步数”。少步 adapter 需匹配 scheduler、noise schedule 与分辨率分布，随意改成 1-step 或换 scheduler 没有保真保证。</p>
+  <h3>11.5 原论文和项目</h3>
+  <ul>
+    <li><a href="https://arxiv.org/abs/2311.18828">DMD 原论文</a> · <a href="https://arxiv.org/abs/2405.14867">DMD2</a> · <a href="https://arxiv.org/abs/2605.30116">SGMD</a> · <a href="https://arxiv.org/abs/2510.08431">rCM</a></li>
+    <li><a href="https://arxiv.org/abs/2609.35768">PDMD</a> · <a href="https://github.com/ZeamoxWang/pdmd">PDMD code</a> · <a href="https://arxiv.org/abs/2610.02188">DMAD</a></li>
+    <li><a href="https://arxiv.org/abs/2610.11498">PTD</a> · <a href="https://arxiv.org/abs/2611.06796">VA-TDM</a></li>
+  </ul>
+  <h3>11.6 注意力加速：降低单步成本</h3>
+  <div class="wrap-t"><table>
+    <tr><th>类别</th><th>例子</th><th>改动与代价</th></tr>
+    <tr><td>精确高效内核</td><td>FlashAttention</td><td>分块计算降低显存读写，保持数学结果；收益受 GPU、序列长度和后端实现影响</td></tr>
+    <tr><td>低精度近似</td><td>SageAttention</td><td>对 QK/PV 使用低精度计算换吞吐，需核对硬件支持与数值质量</td></tr>
+    <tr><td>稀疏/滑窗注意力</td><td>VSA、STA 等</td><td>少算一部分 token 交互；长视频可能更快，但稀疏模式会影响全局联系与小目标细节</td></tr>
+  </table></div>
+  <p>这些方法不改变 NFE；实际加速取决于 attention 是否为瓶颈。它们可以和蒸馏、二采并用，但需要同画布、同硬件实测质量与端到端耗时。</p>
+  <p>更多训练目标见 <a href="h3.md">h3.md</a>、<a href="papers.md">papers.md</a>。注意力加速是每步算子层，二采是流程层；与少步 student 组合时，端到端收益需实测。</p>
+</section>
+
+<section id="s12">
+  <h2><span class="num">12</span>二阶段采样与 SeedVR 恢复</h2>
+  <p class="lead">二采是推理时的尺度切换：低分辨率先定构图、主体和运动，再放大 latent、重新加噪，在高分辨率继续去噪。它省一部分高清 token 计算，但增加 upscaler 和第二段采样成本。</p>
+  <div class="formula">T₂ ≈ N₁·c_low + T_up + N₂·c_high + T_decode</div>
+  <p>若宽、高各减半，空间 token 约为 1/4；全注意力二次项的单步注意力开销理论上约为 1/16。真实总耗时还含 DiT 其它算子、VAE、latent upscaler、显存和调度，须以同硬件端到端测量为准。<b>所以 8+5 往往比同 13 步全程高清快，却通常慢于 4-step 高清直出。</b></p>
+  <h3>12.1 路线对比</h3>
+  <div class="wrap-t"><table>
+    <tr><th>路线</th><th>做法</th><th>速度</th><th>细节/风险</th></tr>
+    <tr><td><b>Full-X0 latent</b></td><td>低清跑到 x0 → 学习式 3D latent 上采样 → 重加噪 → 高清继续采样</td><td>比同 NFE 全程高清省；仍支付 upscaler 和高清段</td><td>结构较稳；高清段重画细节，噪声越强漂移越大</td></tr>
+    <tr><td><b>Mid-trajectory</b></td><td>从低清轨迹中途切换，预测/映射 x0，放大后接下一 σ</td><td>少跑部分低清尾步</td><td>切点预测误差会放大，轨迹衔接要求高</td></tr>
+    <tr><td><b>Latent 插值</b></td><td>简单插值/上采样 latent 后继续去噪</td><td>省 learned upscaler 推理成本</td><td>不等价于恢复高频，可能平滑、细节不足</td></tr>
+    <tr><td><b>像素 i2i</b></td><td>低清解码 → 像素超分 → VAE 重编码 → 高清去噪</td><td>增加 VAE 与像素超分开销</td><td>编解码误差和重绘会改外观</td></tr>
+    <tr><td><b>裁剪/局部精修</b></td><td>仅对脸、手等区域高清生成并回贴</td><td>少算全局 token，但有裁剪/拼接成本</td><td>身份漂移、接缝、跨帧抖动</td></tr>
+    <tr><td><b>SeedVR 后恢复</b></td><td>成片后交给独立视频恢复模型</td><td>追加一段模型耗时</td><td>补纹理但可能幻觉局部；不减少 H3 NFE</td></tr>
+  </table></div>
+  <h3>12.2 latent 二采如何接轨迹</h3>
+  <div class="step"><div class="n">1</div><div class="b"><b>低清 draft。</b>以较少 token 生成主体、布局和运动；画布需满足 VAE/patch 对齐。</div></div>
+  <div class="step"><div class="n">2</div><div class="b"><b>latent 尺度放大。</b>本地实现把 packed latent 还原为空间/时间结构，经学习式 3D latent upscaler 放大，再按 H3 的 24 通道 latent 与 patch 约定重新打包。</div></div>
+  <div class="step"><div class="n">3</div><div class="b"><b>按目标噪声重加噪。</b><code>xσ=(1−σ)x0+σε</code>。高 σ 重画更多，利于生成新高频，但更容易偏离 draft；低 σ 较保守，新增纹理空间也小。</div></div>
+  <div class="step"><div class="n">4</div><div class="b"><b>高清 refine。</b>按 scheduler 剩余步数继续 H3 去噪。音频没有空间放大，但要与视频进度同步调度，避免时长和对齐断开。</div></div>
+  <h3>12.3 SeedVR：为什么慢一点但可能更清晰</h3>
+  <p><a href="https://arxiv.org/abs/2501.01320">SeedVR</a> 是视频恢复框架；<a href="https://arxiv.org/abs/2506.05301">SeedVR2</a> 使用一步扩散与对抗式后训练、特征匹配和自适应窗口注意力恢复视频。一步是恢复模型自己的步数，仍要跑一个独立的大网络；不等于低成本 resize，也不减少 H3 采样步。输入缺少纹理时，恢复模型会推断并补细节，因此总时间上升但观感可能更锐；推断也意味着局部内容可能被改写或幻觉。仓库 SwiftVR 集成只能称 SeedVR2-family，不能认定加载的就是官方 SeedVR2 checkpoint。</p>
+  <div class="note"><b>本地参数并非统一默认：</b>SGLang CLI 对非 480P 默认 8+5、480P 默认旁路；Agnes API mapping 的 split-step 默认 4，且可用环境变量覆盖。这是不同入口的默认配置。归档 e2e 日志在 qwen3_asr 配置注册时导入失败，源码/配置存在不代表生产服务已跑通。</div>
+  <p>实现细节见 <a href="h3.md">h3.md 第 6 节</a>、<a href="docs/二阶段采样技术科普.md">二阶段采样专题</a> 和随归档检查的 SGLang CLI/API 参数映射。服务器专用集成包未纳入公开快照。</p>
+</section>
+
+<section id="s13">
+  <h2><span class="num">13</span>Agnes 产线权重组合：FL2VA 与 REF2VA</h2>
+  <p class="lead">本节按最新可审计的 merge manifest 列出 base、LoRA 来源、scale 与导出格式。配方记录不等同于当前线上实例的健康证明。</p>
+  <div class="wrap-t"><table>
+    <tr><th>产物</th><th>Base</th><th>LoRA 组合</th><th>量化/记录</th></tr>
+    <tr><td><b>Agnes-2.6-1016-FL2VA-FP8</b></td><td>MiniMax-H3 FL2VA</td><td>OpenVDN stage-dmd-step-250/adapters/turbo/adapter_model.safetensors，mode=back_0.7；Combat V2 .6；Realism People .3</td><td>FP8 E4M3</td></tr>
+    <tr><td><b>Agnes-2.6-1018-REF2VA-FP8</b></td><td>官方 MiniMax-H3 REF2VA BF16</td><td>Larryvrh Turbo V4 Step600 EMA flat 1.0；Combat V2 .6；Realism People .3</td><td>FP8 E4M3；1018-v5-turbo-flat1.0</td></tr>
+  </table></div>
+  <p>FL2VA 记录只合入 OpenVDN 的 turbo adapter，没有 VDN linear branch/default adapter，因此这是 H3 FL2VA 上的自定义多 LoRA 融合，不等于完整 VDN-H3；FL2VA 可做 T2V、单参考或首尾双参考。</p>
+  <p>REF2VA Combat/Realism 层级 schedule：Token Refiner 1.0；blocks 0–4 .7、5–24 1.0、25–29 .6、30–34 .4、35–39 .1、40–49 0。Global scale 与 schedule 都写在 manifest；没有融合器语义证据时不要把两者相乘。LoRA 是分别按 scale 加到 base 的 delta，不是总和为 100% 的 checkpoint 加权平均。</p>
+  <p>REF2VA 导出记录包含 FP32 融合、QKV 从 <code>[q_all;k_all;v_all]</code> 变成逐头交错 <code>[q,k,v]</code>、转 BF16，再以 128×128 block 做 FP8 E4M3；敏感输出/投影层不量化。FL2VA 1016 没有同等完整流程记录，不能套用 REF2VA 步骤。配方来源：<a href="docs/Agnes权重融合与SGLang产线记录.md">Agnes 权重融合与 SGLang 产线记录</a>；归档没有融合后完整权重。</p>
+  <div class="warn"><b>线上状态：</b>这是本地材料最新可审计的两套配方，不足以证明当前在线服务正在加载哪一套。配套 SGLang 快照的 e2e 日志在 <code>qwen3_asr</code> 配置注册时导入失败。要称为当前线上权重，还需当前服务模型路径或健康请求证据。</div>
+</section>
+
+<div class="part"><span>PART 4</span><b>评测、归因与规范：怎么判断好坏</b><i>17–19 节</i></div>
+
+<section id="s14">
+  <h2><span class="num">14</span>采样参数手册</h2>
+  <p class="lead">这一节回答一个具体问题：同一条提示词，为什么两次跑出来不一样。参数分成五组，每组只有一两个真正影响画质，其余是复现性问题。</p>
+
+  <h3>第一组 · 随机性</h3>
+  <div class="card">
+    <dl class="kv">
+      <dt>seed 种子</dt><dd>决定初始噪声那个张量。确定性采样下，种子 + 提示词 + 步数 + 分辨率相同，结果应当完全一致。换卡、换 attention 后端可能有微小差异，因为浮点累加顺序不同。</dd>
+      <dt>latent 形状</dt><dd>由分辨率和帧数决定（H3：边长取 32 的倍数，帧数满足 17n+5）。<b>改分辨率会改变种子的语义</b> —— 同一个种子在不同分辨率下不是「同一张图」。</dd>
+      <dt>噪声偏移</dt><dd>有的实现会做噪声均值偏移或 offset，影响整体亮度和对比。跨实现对比时容易踩坑。</dd>
+    </dl>
+  </div>
+
+  <h3>第二组 · 噪声强度与时间表</h3>
+  <div class="card">
+    <dl class="kv">
+      <dt>sigma σ</dt><dd>就是「噪声有多强」。t=1 是纯噪声、t=0 是干净数据，σ 是同一个量的另一种写法。看到 σ 就翻译成「现在有多脏」。</dd>
+      <dt>SDE 里的 σ_t</dt><dd>每一步额外注入多少随机噪声。<b>等于 0 就是确定性 ODE</b>；越大探索越强，也越容易糊、越难复现。Flow-GRPO 训练时就是靠它才有采样多样性。</dd>
+      <dt>strength / start_timestep</dt><dd>二阶段 refine 用：从多脏的状态重新开始。<code>0.2</code> 只改细节，<code>0.6</code> 结构会变。这个值几乎决定二阶段画质提升有多大。</dd>
+      <dt>时间表 shift</dt><dd>流匹配常把采样点往高噪声侧偏（shift 设 2~3），让低噪声步更密。它直接决定「细节阶段分到几步」，是 4 步模型里最被低估的参数。</dd>
+      <dt>步数</dt><dd>4 步是加速方案的常态；降到 2~3 步开始崩结构，加到 8 步细节明显回升但成本翻倍。</dd>
+    </dl>
+  </div>
+
+  <h3>第三组 · 引导</h3>
+  <div class="card">
+    <dl class="kv">
+      <dt>guidance / CFG</dt><dd>H3 已蒸馏，<b>固定 1.0</b>。按 SD 的习惯填 5 或 7 会过曝、色彩溢出、动作变僵。</dd>
+      <dt>negative prompt</dt><dd>只有真做两遍前向的 CFG 才生效。H3 单次前向，写了也基本没用。</dd>
+      <dt>APG / rescale</dt><dd>CFG 的替代方案，用来压制过曝。H3 上同样受限。</dd>
+      <dt>提示词权重</dt><dd>影响文本条件强度，过大时画面会「用力过猛」。</dd>
+    </dl>
+  </div>
+
+  <h3>第四组 · 模型与权重</h3>
+  <div class="card">
+    <dl class="kv">
+      <dt>LoRA scale</dt><dd>不是 1.0 最好。0.6~0.9 往往更稳，turbo LoRA 与 DMD 叠加时尤其明显。调这个比重新训练便宜得多，先试它。</dd>
+      <dt>dtype</dt><dd>bf16 是默认。<b>fp8 提速但细节掉</b>，小目标（远处人脸）最先受害。</dd>
+      <dt>VAE 精度与分块</dt><dd>分块解码（tiled VAE）省显存，但接缝处容易糊；精度降到 fp16 以下也会损失纹理。</dd>
+      <dt>attention 后端</dt><dd>sdpa / flash / sage 数值不完全相同。sage 更快但做了近似，可能掉细节。<b>换后端等于换结果</b>，对比实验必须统一。</dd>
+    </dl>
+  </div>
+
+  <h3>影响速查</h3>
+  <div class="wrap-t">
+  <table>
+    <tr><th style="width:150px">参数</th><th>调大</th><th>调小</th><th>H3 上的建议</th></tr>
+    <tr><td><b>seed</b></td><td>换画面，无好坏</td><td>—</td><td>对比实验固定同一个</td></tr>
+    <tr><td><b>σ（SDE 噪声）</b></td><td>更多样，更糊</td><td>更稳，更容易复现</td><td>训练时才需要，推理设 0</td></tr>
+    <tr><td><b>二阶段 strength</b></td><td>结构会变，风险大</td><td>细节补不上</td><td>从 0.3~0.4 起调</td></tr>
+    <tr><td><b>shift</b></td><td>细节步变多，结构步变少</td><td>反之</td><td>4 步时值得扫一遍</td></tr>
+    <tr><td><b>LoRA scale</b></td><td>风格强，易过拟合</td><td>效果弱</td><td>0.6~0.9</td></tr>
+    <tr><td><b>dtype</b></td><td>—</td><td>fp8 掉细节</td><td>评测用 bf16</td></tr>
+  </table>
+  </div>
+
+  <div class="warn"><b>复现失败最常见的三个原因：</b>attention 后端不同、dtype 不同、LoRA scale 不同。这三个不统一，种子固定了也没用。</div>
+
+  <div class="note"><b>复现清单（八项）：</b>seed、分辨率、帧数、步数、shift、dtype、attention 后端、LoRA scale（含 VAE 精度与后处理）。八项全写进实验记录，否则结果无法对比。</div>
+</section>
+
+<div class="part"><span>PART 3</span><b>推理与加速：蒸馏、二采与产线权重</b><i>13–16 节</i></div>
+
+<section id="s15">
+  <h2><span class="num">15</span>推理引擎：ComfyUI 与 SGLang</h2>
+  <p class="lead">这两个不是同一类东西。ComfyUI 是给人和工作流用的，SGLang 是给服务和吞吐用的。理解这一点，就能理解为什么很多权重只适配前者。</p>
+
+  <figure class="fig">
+    <div class="fig-h">Fig 8 · 两个引擎，两种用途</div>
+    <div class="figbody">
+    <svg class="fx" viewBox="0 0 820 274" role="img" aria-label="ComfyUI 偏创作调试，SGLang 偏服务吞吐，底部给出选型建议">
+      <rect class="n" x="16" y="16" width="384" height="180" rx="12"/>
+      <text class="t" x="36" y="46">ComfyUI</text>
+      <text class="s" x="36" y="66">给人用：创作、调试、快速看效果</text>
+      <circle class="bar-b" cx="40" cy="96" r="3"/>
+      <text class="s" x="52" y="100">节点图，逐节点跑 PyTorch</text>
+      <circle class="bar-b" cx="40" cy="122" r="3"/>
+      <text class="s" x="52" y="126">单文件 safetensors + 键名重映射</text>
+      <circle class="bar-b" cx="40" cy="148" r="3"/>
+      <text class="s" x="52" y="152">一次一个任务，几乎没有并发</text>
+      <circle class="bar-b" cx="40" cy="174" r="3"/>
+      <text class="s" x="52" y="178">自定义节点可执行任意 Python</text>
+
+      <rect class="n-a" x="424" y="16" width="384" height="180" rx="12"/>
+      <text class="t" x="444" y="46">SGLang</text>
+      <text class="s" x="444" y="66">给服务用：吞吐、延迟、多用户</text>
+      <circle class="bar-a" cx="448" cy="96" r="3"/>
+      <text class="s" x="460" y="100">统一调度 + 定制 kernel + 图捕获</text>
+      <circle class="bar-a" cx="448" cy="122" r="3"/>
+      <text class="s" x="460" y="126">HF 目录 + 引擎内注册的模型实现</text>
+      <circle class="bar-a" cx="448" cy="148" r="3"/>
+      <text class="s" x="460" y="152">连续批处理 / 分页显存 / 前缀复用</text>
+      <circle class="bar-a" cx="448" cy="174" r="3"/>
+      <text class="s" x="460" y="178">只认实现过的算子，不能跑任意代码</text>
+
+      <rect class="n-d" x="16" y="212" width="792" height="46" rx="9"/>
+      <text class="s" x="32" y="232">选型：复现实验 → diffusers ／ 调试看效果 → ComfyUI ／ 上线吞吐 → SGLang ／ RL rollout → vLLM-Omni</text>
+      <text class="tm" x="32" y="250">同一个种子换引擎结果会变，是因为两者走的不是同一条数值路径。</text>
+    </svg>
+    </div>
+    <figcaption><b>一句话分工：</b>左边换来的是「想改什么都能改」，右边换来的是「同样的卡能服务更多人」。所以左边出生态、右边出吞吐 —— 也所以社区权重先到 ComfyUI，再到 SGLang。</figcaption>
+  </figure>
+
+  <div class="wrap-t">
+  <table>
+    <tr><th style="width:120px">维度</th><th>ComfyUI</th><th>SGLang</th></tr>
+    <tr><td><b>定位</b></td><td>图形化工作流，创作与调试</td><td>服务端高吞吐推理引擎</td></tr>
+    <tr><td><b>执行方式</b></td><td>节点图，逐节点跑 PyTorch</td><td>统一调度 + 定制 kernel + 图捕获</td></tr>
+    <tr><td><b>权重形态</b></td><td>单文件 safetensors + 自定义键名映射</td><td>HF 目录结构 + 引擎内注册的模型实现</td></tr>
+    <tr><td><b>并发</b></td><td>基本一次一个任务</td><td>连续批处理、分页显存、前缀复用</td></tr>
+    <tr><td><b>扩展性</b></td><td>自定义节点，可执行任意 Python</td><td>只能用引擎支持过的模型与算子</td></tr>
+    <tr><td><b>擅长</b></td><td>生态全、改图改视频快、显存选项多</td><td>多用户、低延迟、OpenAI 兼容接口</td></tr>
+    <tr><td><b>不擅长</b></td><td>高并发、上线服务</td><td>新模型适配慢、权重需要转换</td></tr>
+  </table>
+  </div>
+
+  <h3>为什么很多权重只适配 ComfyUI</h3>
+  <div class="card">
+    <dl class="kv">
+      <dt>① 打包格式</dt><dd>ComfyUI 接受「一个 safetensors + 键名重映射表」，作者随手就能发；SGLang 要求标准 HF 目录、分片权重、config，还得在引擎里注册模型结构。</dd>
+      <dt>② 自定义算子</dt><dd>ComfyUI 节点里可以塞任意 Python：自定义 attention、自定义 VAE、自定义采样器。SGLang 不能执行任意代码，只认自己实现过的算子。</dd>
+      <dt>③ 量化格式</dt><dd>GGUF 和不少专有量化只有 ComfyUI 的对应节点能读。同一份「fp8 版本」在两个引擎里常常不通用。</dd>
+      <dt>④ 生态惯性</dt><dd>社区作者先做 ComfyUI 工作流，验证效果后才考虑引擎适配；适配的收益（吞吐）对个人作者没有意义。</dd>
+    </dl>
+  </div>
+
+  <h3>H3 上的实际情况</h3>
+  <div class="wrap-t">
+  <table>
+    <tr><th style="width:130px">引擎</th><th>状态</th><th>要注意什么</th></tr>
+    <tr><td><b>SGLang</b></td><td>官方支持，有正式 cookbook</td><td>带社区量化或合并 LoRA 的权重被视为<b>近似路径</b>，不能当一致性基线</td></tr>
+    <tr><td><b>ComfyUI</b></td><td>day-0 官方支持，模板默认用 pruned int8</td><td>pruned 权重的 LoRA 兼容性受限，还会和部分 attention 节点冲突</td></tr>
+    <tr><td><b>diffusers</b></td><td>原生支持</td><td>最适合做可复现实验</td></tr>
+    <tr><td><b>vLLM-Omni</b></td><td>官方 recipe</td><td>面向吞吐，rollout 场景值得看</td></tr>
+  </table>
+  </div>
+
+  <p>所以「有些权重只适配 ComfyUI」在 H3 上是具体可查的：<b>Turbo LoRA 只认全量 bf16 或 int8_convrot</b>，在 pruned 权重上会丢 adaln；pruned int8 又和部分 attention 节点冲突。这不是引擎有 bug，而是它们走的不是同一条数值路径 —— 同样解释了你为什么会看到「同一个种子的结果，换引擎就变了」。</p>
+
+  <div class="warn"><b>对你们的意义：</b>训练、评测、跑对比实验 → 原生 PyTorch 脚本或 diffusers，<b>复现性优先</b>；上线服务 → SGLang 已有官方支持，可以直接用；ComfyUI 适合调试与快速看效果，不适合当基线。RL 的 rollout 可以看 vLLM-Omni 那条路。</div>
+
+  <div class="note"><b>H3 侧的生态、论文与社区方案</b>（官方仓库、权重托管、量化、LoRA、加速、RL 复现）单独整理在同目录的 <code>h3.md</code>，避免这一节过长。</div>
+</section>
+
+<section id="s16">
+  <h2><span class="num">16</span>评测：传统 CV、VLM、Omni 怎么选</h2>
+  <p class="lead">训练看 loss，交付看评测。这一节回答三件事：三种「裁判」各自能判什么、判不了什么；为什么高动态场景最容易误判；VBench、Open-Sora 这些流水线到底在跑什么。</p>
+
+  <h3>16.1 三种裁判，三条能力边界</h3>
+  <figure class="fig">
+    <div class="fig-h">Fig 13 · 三类裁判：成本差两个数量级，能力不重叠</div>
+    <div class="figbody">
+    <svg class="fx" viewBox="0 0 820 300" role="img" aria-label="传统CV、VLM、Omni 三类评测裁判的成本与能力对比">
+      <rect class="n" x="10" y="22" width="252" height="252" rx="12"/>
+      <text class="t" x="136" y="50" text-anchor="middle">传统 CV 指标</text>
+      <text class="s" x="136" y="72" text-anchor="middle">毫秒~秒级，最便宜</text>
+      <text class="t2" x="136" y="102" text-anchor="middle">PSNR · SSIM · LPIPS · DISTS</text>
+      <text class="t2" x="136" y="126" text-anchor="middle">DOVER · FAST-VQA · MUSIQ</text>
+      <text class="t2" x="136" y="150" text-anchor="middle">RAFT warp · FVD</text>
+      <text class="s" x="136" y="182" text-anchor="middle">能判：画质、闪烁、运动连续性</text>
+      <text class="s" x="136" y="204" text-anchor="middle">判不了：语义对不对、物理是否合理</text>
+      <text class="s" x="136" y="226" text-anchor="middle">方差小，可复现</text>
+      <rect class="bar-a" x="40" y="244" width="56" height="10" rx="5"/>
+      <text class="tm" x="104" y="253">1×</text>
+
+      <rect class="n-a" x="284" y="22" width="252" height="252" rx="12"/>
+      <text class="t" x="410" y="50" text-anchor="middle">VLM 判官</text>
+      <text class="s" x="410" y="72" text-anchor="middle">秒~十秒级，可批量</text>
+      <text class="t2" x="410" y="102" text-anchor="middle">GPT-4o / Qwen-VL 类</text>
+      <text class="t2" x="410" y="126" text-anchor="middle">VideoScore · VBench-2.0</text>
+      <text class="t2" x="410" y="150" text-anchor="middle">抽帧 + rubric 打分</text>
+      <text class="s" x="410" y="182" text-anchor="middle">能判：prompt 对齐、常识、物理</text>
+      <text class="s" x="410" y="204" text-anchor="middle">判不了：细粒度时序、音画同步</text>
+      <text class="s" x="410" y="226" text-anchor="middle">方差大，要固定温度 + 多次采样</text>
+      <rect class="bar-a" x="314" y="244" width="120" height="10" rx="5"/>
+      <text class="tm" x="442" y="253">20×</text>
+
+      <rect class="n" x="558" y="22" width="252" height="252" rx="12"/>
+      <text class="t" x="684" y="50" text-anchor="middle">Omni 判官</text>
+      <text class="s" x="684" y="72" text-anchor="middle">十秒级，最贵</text>
+      <text class="t2" x="684" y="102" text-anchor="middle">同时看画面 + 听声音</text>
+      <text class="t2" x="684" y="126" text-anchor="middle">判口型 / 事件音 / 对白清晰度</text>
+      <text class="t2" x="684" y="150" text-anchor="middle">H3 这类音视频模型必用</text>
+      <text class="s" x="684" y="182" text-anchor="middle">能判：音画是否同一时刻发生</text>
+      <text class="s" x="684" y="204" text-anchor="middle">判不了：长视频窗口、精确到帧的定位</text>
+      <text class="s" x="684" y="226" text-anchor="middle">成本高，只做抽样复核</text>
+      <rect class="bar-a" x="588" y="244" width="192" height="10" rx="5"/>
+      <text class="tm" x="788" y="253">60×</text>
+    </svg>
+    </div>
+    <figcaption><b>不要问「哪个最好」，要问「哪一层能判这个错」。</b>画质崩了用 CV，语义崩了用 VLM，音画不同步只能用 Omni。</figcaption>
+  </figure>
+
+  <div class="wrap-t">
+  <table>
+    <tr><th style="width:150px">裁判</th><th>输入</th><th>给出什么</th><th>典型失效</th><th>成本 / 方差</th></tr>
+    <tr><td><b>传统 CV（全参考）</b></td><td>成片 + GT</td><td>逐帧保真、结构、感知相似度</td><td>没有 GT 就没法用；高动态错位直接判死</td><td>极低 / 低</td></tr>
+    <tr><td><b>传统 CV（无参考）</b></td><td>只有成片</td><td>画质分、美学分、闪烁与运动连续性</td><td>看不出「语义对不对」，也听不了声音</td><td>低 / 中</td></tr>
+    <tr><td><b>VLM 判官</b></td><td>抽帧 + prompt + rubric</td><td>对齐、常识、物理合理性、原子事实</td><td>帧数一多就看不过来；位置 / 长度偏差明显</td><td>中高 / 高</td></tr>
+    <tr><td><b>Omni 判官</b></td><td>视频 + 音轨</td><td>音画同步、口型、对白可懂度</td><td>窗口有限，细粒度时间定位不准</td><td>高 / 高</td></tr>
+  </table>
+  </div>
+
+  <h3>16.2 传统 CV：先分清「有没有 GT」</h3>
+  <p>同一个 PSNR，在有参考和无参考两个场景里含义完全不同。生成模型评测通常<b>没有 GT</b>，所以真正能用的是无参考指标和分布指标，全参考指标只在「重建 / 超分 / 二采前后对比」里成立。</p>
+  <div class="wrap-t">
+  <table>
+    <tr><th style="width:128px">类别</th><th>代表指标</th><th>要 GT</th><th>擅长</th><th>坑</th></tr>
+    <tr><td><b>全参考 · 像素</b></td><td>PSNR / SSIM</td><td>要</td><td>压缩、重建保真度</td><td>高动态一错位就崩；和「好不好看」几乎无关</td></tr>
+    <tr><td><b>全参考 · 感知</b></td><td>LPIPS / DISTS</td><td>要</td><td>纹理、模糊、局部结构失真</td><td>逐帧算再平均，会把闪烁平均掉</td></tr>
+    <tr><td><b>无参考 · 画质</b></td><td>DOVER · FAST-VQA · MUSIQ</td><td>不要</td><td>单条成片的技术 / 美学质量</td><td>对「正确的运动模糊」不友好，高动态会冤枉</td></tr>
+    <tr><td><b>时序</b></td><td>RAFT 光流 warp error、帧间残差</td><td>不要</td><td>运动流畅度、闪烁</td><td>大位移时光流本身估错，误差会算到画面上</td></tr>
+    <tr><td><b>分布</b></td><td>FID / FVD</td><td>参考集</td><td>多个模型横向比</td><td>要求固定分辨率与帧数；单条视频算它没有意义</td></tr>
+  </table>
+  </div>
+  <div class="note"><b>一句话记法：</b>PSNR/SSIM 衡量「像不像原片」，LPIPS/DISTS 衡量「看起来像不像」，DOVER/FAST-VQA 衡量「这条片子本身有多清楚」，FVD 衡量「整批片子和真视频像不像」。四个问题不要混着问。</div>
+
+  <h3>16.3 高动态场景：平均分会骗人</h3>
+  <p>高动态（快速运动、大位移、旋转、镜头剧烈晃动、闪光）是最容易把评测做反的地方。原因不是指标不准，而是<b>指标测的东西在动态段发生了变化</b>：</p>
+  <ul>
+    <li><b>错位先于失真。</b>位移一大，逐像素误差就被错位主导 —— 模型画得再好，PSNR 也低。要么先用光流把上一帧 warp 到当前帧再比，要么干脆别用全参考。</li>
+    <li><b>正确的模糊被判成糊。</b>高速运动本来就该有拖影，无参考画质模型会把它当成缺陷扣分。</li>
+    <li><b>真实运动和闪烁混在一起。</b>帧间差大，可能只是动得快。要先把运动补偿掉，剩下的残差才是闪烁。</li>
+    <li><b>均值掩盖峰值。</b>一条 5 秒片子里有 0.3 秒崩坏，全片平均几乎看不出来，但观众一眼就看到。</li>
+  </ul>
+  <div class="wrap-t">
+  <table>
+    <tr><th style="width:150px">想确认什么</th><th>别这么测</th><th>换成这样</th></tr>
+    <tr><td>运动是否流畅</td><td>逐帧 PSNR 取平均</td><td>RAFT 光流 warp error（越低越顺），按运动幅度分桶报</td></tr>
+    <tr><td>有没有闪烁</td><td>原始帧间 L1</td><td>光流补偿后的残差 + 高频能量随时间的抖动</td></tr>
+    <tr><td>有没有糊 / 崩结构</td><td>全片平均清晰度分</td><td>取运动峰值帧看 Laplacian 方差、局部清晰度，看最低的 5% 分位</td></tr>
+    <tr><td>语义有没有丢</td><td>只抽第一帧问 VLM</td><td>首 / 中 / 尾 + 高动态段各抽几帧，原子问题逐条问，重复 3 次取多数</td></tr>
+    <tr><td>音画是否同步</td><td>任何画质指标</td><td>Omni 判口型与事件音对齐；再人工抽查 10 条</td></tr>
+  </table>
+  </div>
+  <div class="warn"><b>最实用的一条：</b>按光流幅度把样本分成低 / 中 / 高三桶，<b>分桶报分，不要只报总分</b>。高动态桶里的掉分，往往就是模型真正的短板；混在总分里，会被大量静止镜头稀释掉。</div>
+
+  <h3>16.4 VLM 与 Omni 当裁判：怎么问才稳</h3>
+  <p>VLM 打分不是「丢进去问几分」这么简单，问法决定了方差。按稳定性从高到低有三档：</p>
+  <div class="step"><div class="n">1</div><div class="b"><b>原子检查（最稳）。</b>把要求拆成 yes/no 问题：「杯子里还有水吗」「人物左手是五根手指吗」「字幕有没有拼错」。答案可枚举，方差最小。</div></div>
+  <div class="step"><div class="n">2</div><div class="b"><b>成对比较。</b>同一 prompt 的两个结果，问「A 和 B 哪个更符合」。比绝对分稳，但要交换 A/B 顺序各问一次，抵消位置偏差。</div></div>
+  <div class="step"><div class="n">3</div><div class="b"><b>绝对打分（最不稳）。</b>1–5 分或 0–100 分。必须给 rubric（每一分对应什么），温度设 0，同一输入采样多次取中位数。</div></div>
+  <div class="note"><b>四个已知偏差：</b>位置偏差（排在前面的更容易赢）、长度偏差（描述长的容易得高分）、自我偏好（同族模型互评偏高）、分辨率偏好（清晰度被当成质量）。做对比评测时，这四条至少要中和掉前两条。</div>
+  <p><b>Omni 的独有价值：</b>它能同时接收画面和音轨，判断「关门声是不是和门关上同一时刻」「对白口型和语音是否对得上」「BGM 有没有压过台词」。这三件事没有任何纯视觉指标能测，而 H3 这类音视频模型恰恰最容易在这翻车。</p>
+
+  <h3>16.5 三条主流流水线</h3>
+  <div class="wrap-t">
+  <table>
+    <tr><th style="width:150px">流水线</th><th>怎么算分</th><th>适合回答</th><th>注意</th></tr>
+    <tr><td><b>VBench 1.0</b><br><span class="tm">arXiv 2311.17982</span></td><td>16 个维度，拆成 Quality（主体一致、背景一致、闪烁、运动平滑、美学、成像等）与 Semantic（物体、多物体、动作、颜色、空间关系、场景、风格等）两组，各维度用专用 prompt 与专用模型打分</td><td>「画面稳不稳、像不像、听不听话」</td><td>Dynamic Degree 单独列、<b>不计入总分</b>（动得多不等于好）；prompt suite 是公开的，容易进训练集</td></tr>
+    <tr><td><b>VBench-2.0</b><br><span class="tm">arXiv 2503.21755</span></td><td>从「看起来真」转向「内在真实」，五大类：Human Fidelity / Controllability / Creativity / Physics / Commonsense，下面再拆细项</td><td>「物理对不对、人体结构崩不崩、常识合不合理」</td><td>依赖 SOTA VLM/LLM 当判官，成本高；分数对判官版本敏感</td></tr>
+    <tr><td><b>Open-Sora / Open-Sora Plan</b><br><span class="tm">arXiv 2412.20404 / 2412.00131</span></td><td>不发明新指标，而是把评测做成<b>消融表</b>：VBench 分 + 人工偏好 + 自建指标（美学、动态、文本对齐）随每个训练配方一起报</td><td>「我这版改动到底有没有用」</td><td>它们的价值在方法论：改动必须配一张同口径的对比表</td></tr>
+    <tr><td><b>VideoScore</b><br><span class="tm">arXiv 2406.15252</span></td><td>用 VLM 学人类偏好，输出细粒度分（视觉质量、时序一致、动态、文本对齐、事实一致）</td><td>「批量粗筛，替代一部分人工」</td><td>本质是学出来的偏好模型，会继承训练数据的偏好</td></tr>
+    <tr><td><b>EvalCrafter</b><br><span class="tm">arXiv 2310.11440</span></td><td>17 个指标、约 700 条 prompt，多指标加权成总分</td><td>「要一个可比的综合分」</td><td>加权方式是人为定的，换权重排名会变</td></tr>
+    <tr><td><b>DOVER</b><br><span class="tm">arXiv 2211.04894</span></td><td>把 UGC 视频质量拆成美学与技术两个视角分别打分</td><td>「单条成片的画质分」</td><td>训练在 UGC 数据上，对生成视频的分布有偏移</td></tr>
+  </table>
+  </div>
+
+  <h3>16.6 选型：按你要回答的问题挑</h3>
+  <div class="wrap-t">
+  <table>
+    <tr><th style="width:190px">你要回答</th><th>首选</th><th>补充</th><th>别用</th></tr>
+    <tr><td>二采前后有没有变清楚</td><td>LPIPS / DISTS + 局部清晰度</td><td>峰值运动帧的 Laplacian 方差</td><td>VLM 绝对分（分不清细节差异）</td></tr>
+    <tr><td>这条片子交付够不够</td><td>DOVER / FAST-VQA + 人工 10 条抽查</td><td>VBench 的子维度分</td><td>PSNR（没有 GT）</td></tr>
+    <tr><td>prompt 有没有被听懂</td><td>VLM 原子检查</td><td>VBench Semantic 组</td><td>画质指标</td></tr>
+    <tr><td>物理 / 人体有没有崩</td><td>VBench-2.0</td><td>Omni 抽检 + 人工</td><td>FVD（分布分看不出单条崩坏）</td></tr>
+    <tr><td>高动态段稳不稳</td><td>光流 warp error + 分桶报分</td><td>闪烁残差、峰值帧清晰度</td><td>全片平均 PSNR</td></tr>
+    <tr><td>音画同不同步</td><td>Omni 判官</td><td>人工抽查口型段</td><td>任何纯视觉指标</td></tr>
+  </table>
+  </div>
+
+  <h3>16.7 和 RL 的关系：reward 不是评测</h3>
+  <p>第 8 节讲过奖励怎么设计，这里补一句边界：<b>reward 是训练信号，评测是验收</b>。两者共用一套模型时，一定会出现 reward hacking —— 分数一路涨，人看越来越差。</p>
+  <ul>
+    <li><b>物理隔离：</b>训练用的 reward 模型与验收用的判官不要是同一个 checkpoint，最好连家族都不同。</li>
+    <li><b>数据隔离：</b>VBench 的 prompt suite 是公开的，很容易被无意间混进训练集，指标会虚高。验收集自己留一份不公开的。</li>
+    <li><b>分层看：</b>训练中每 N 步跑一次固定 prompt 的小评测，把「语义分」和「画质分」分开画曲线 —— 只涨其一是典型的过拟合信号。</li>
+    <li><b>别只看均值：</b>记录最差 5% 的样本，RL 后期崩坏通常先从长尾开始。</li>
+  </ul>
+</section>
+
+<section id="s17">
+  <h2><span class="num">17</span>MiniMax H3 的提示词语法</h2>
+  <p class="lead">H3 不接收「一段散文」，它接收的是一份<b>带时间码的视听脚本</b>。下面这套规则来自 <code>context-ir</code> 仓库的 <code>h3-prompt-writing</code>（<code>base-en.txt</code> / <code>ref-en.txt</code>），是模型侧的硬性格式，不是写作风格建议。</p>
+
+  <h3>17.1 五种模式，三句固定首行</h3>
+  <div class="wrap-t">
+  <table>
+    <tr><th style="width:96px">模式</th><th>输入</th><th>首行指令</th><th>主体内容</th></tr>
+    <tr><td><b>T2VA</b></td><td>纯文本</td><td>无，直接从三个字段开始</td><td>从零构建完整视听时间轴</td></tr>
+    <tr><td><b>I2VA</b></td><td>首帧图</td><td>有（见下）</td><td>以首帧为 0.00 秒，向前发展</td></tr>
+    <tr><td><b>FL2VA</b></td><td>首帧 + 尾帧</td><td>有（见下）</td><td>描述首帧到尾帧的连续演变</td></tr>
+    <tr><td><b>L2VA</b></td><td>尾帧图</td><td>有（见下）</td><td>推断合理起点，收敛到尾帧</td></tr>
+    <tr><td><b>Ref2VA</b></td><td>图 / 视频 / 音频参考</td><td>无固定首行，走六段式</td><td>全参考重写，见 17.7</td></tr>
+  </table>
+  </div>
+  <p>这三句必须<b>逐字</b>放在最终提示词的第一行，随后空一行再接字段。<code>N</code> 是最终镜头的编号，<code>S.SS</code> 是精确到两位小数的有效时长（如 <code>8.00</code>）。</p>
+  <div class="formula flow">I2VA
+For the target video, at 0.00 seconds into the target video, &lt;Picture 1&gt; (from [Shot 1]) is fully referenced.
+
+FL2VA
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot N) aligns with the S.SS-second mark of the target video.
+
+L2VA
+How the reference pictures align with the target video — &lt;Picture 1&gt; (from [Shot N]) aligns with the S.SS-second mark of the target video.</div>
+  <div class="note"><b>容易写错的三处：</b>① I2VA 的 <code>&lt;Picture 1&gt;</code> 带尖括号，FL2VA 的 <code>Picture 1</code> 不带；② 时长必须写两位小数（<code>8.00</code>，不是 <code>8</code>）；③ L2VA 的参考图属于<b>最后一个镜头</b>，不是 Shot 1。</div>
+
+  <h3>17.2 三个字段，顺序固定</h3>
+  <div class="formula flow">integrated_multimodal_description: [Shot 1] ...
+
+overall_soundscape: ...
+
+non_diegetic_music: ...</div>
+  <div class="card">
+    <dl class="kv">
+      <dt>integrated_…</dt><dd>沿时间轴写视觉、动作、镜头、说话人、对白与「叙事内声响」（画面世界里真实发出的声音）。提示词的主体。</dd>
+      <dt>overall_soundscape</dt><dd>整段视频的环境音、动作音、非语言人声（呼吸、笑声、喘息）。</dd>
+      <dt>non_diegetic_music</dt><dd>只有观众能听到、角色听不到的配乐。</dd>
+    </dl>
+  </div>
+  <p>字段名、顺序、英文冒号都不能改。三个字段都必须是英文正文；只有对白、歌词、画面可见文字保留原语言。</p>
+
+  <h3>17.3 镜头：编号、时间码、剪辑动词</h3>
+  <ul>
+    <li><code>[Shot 1]</code> <b>不带时间码</b>，直接接内容；后续镜头写作 <code>[Shot 2] At 00:03.500, the camera cuts to ...</code>。</li>
+    <li>时间码必须<b>严格递增</b>，且不超过视频总时长。</li>
+    <li>常规剪辑用 <code>the camera cuts to</code> / <code>the shot cuts to</code> / <code>the shot transitions to</code> / <code>the shot changes to</code> / <code>the shot switches to</code>；用户明确要求时才用 <code>cross-dissolve</code> / <code>fade</code> / <code>wipe</code>。</li>
+    <li>剪辑要带来<b>新信息</b>（主体、空间、状态、视角或时间变了）。只是远近或轻微角度变化，用运镜，不要切镜头。</li>
+  </ul>
+  <div class="formula flow">[Shot 1] Live-action, cinematic, a medium-wide shot frames a baker opening the shutters before sunrise.
+
+[Shot 2] At 00:05.000, the camera cuts to a close-up of steam rising from the sliced bread.</div>
+
+  <h3>17.4 运镜：类型 + 幅度 + 速度</h3>
+  <p>完整的运镜描述三个维度：<b>类型</b>决定怎么动，<b>幅度</b>决定变化范围，<b>速度</b>决定节奏。中等幅度、正常速度可以省略，但小幅度 / 大幅度、低速 / 高速要写出来。</p>
+  <div class="wrap-t">
+  <table>
+    <tr><th style="width:210px">类型</th><th>写法</th></tr>
+    <tr><td>变焦</td><td>Zoom In / Zoom Out（机身不动，只改焦距）</td></tr>
+    <tr><td>前后移动</td><td>push in / pull out</td></tr>
+    <tr><td>水平转动</td><td>pan left / pan right（机位固定）</td></tr>
+    <tr><td>水平平移</td><td>truck left / truck right（机位平移）</td></tr>
+    <tr><td>俯仰</td><td>tilt up / tilt down</td></tr>
+    <tr><td>升降</td><td>pedestal up / pedestal down</td></tr>
+    <tr><td>环绕 / 跟随</td><td>arc shot / tracking shot</td></tr>
+    <tr><td>不动 / 手持</td><td>static shot / slight handheld shake、strong handheld shake</td></tr>
+    <tr><td>主观 / 旋转</td><td>POV / roll clockwise、roll counterclockwise</td></tr>
+  </table>
+  </div>
+  <p>写法上要把运镜写进句子里，而不是在句尾堆标签：<code>the camera pushes in slowly with a small amplitude toward the letter in her hand.</code></p>
+
+  <h3>17.5 说话人、对白、画外音</h3>
+  <p>说过话、唱过歌或发出画外人声的角色，一律给固定 ID：<code>(S1)</code>、<code>(S2)</code>；同时开口写 <code>(S1,S2)</code>。ID 跨镜头不变；从没出过声的角色<b>不要</b>给 ID。</p>
+  <p>角色首次出现时，要在 <code>&lt;d&gt;</code> <b>外面</b>给出足以固定身份的信息：角色类型、年龄、性别、是否在画面内、音高、音色、语速、口音。</p>
+  <div class="formula flow">A young woman with a soft, breathy voice (S1) says: &lt;d&gt;[English] I get off at the next stop.&lt;/d&gt;
+
+Two children (S1,S2) shout together: &lt;d&gt;[English] Wait for us!&lt;/d&gt;</div>
+  <ul>
+    <li><code>&lt;d&gt;</code> 里只放<b>语言标签 + 逐字原话</b>。不翻译、不改写、不改标点。</li>
+    <li>画外音固定用 <code>says in an off-screen voiceover</code>，并<b>紧跟一句</b>说明画面中角色嘴唇闭合：<code>His lips remain completely closed.</code></li>
+    <li>一句台词跨剪辑点时，在接缝处加 <code>&lt;scenetrans&gt;</code>，并说明音频在剪辑点延续；视频结束导致话没说完，用 <code>&lt;cutoff&gt;</code>。</li>
+    <li>画面里真实可见的文字（招牌、字幕、霓虹灯）放进英文双引号，逐字保留，不翻译。</li>
+  </ul>
+
+  <h3>17.6 音景与配乐：叙事内 vs 叙事外</h3>
+  <div class="wrap-t">
+  <table>
+    <tr><th style="width:150px">字段</th><th>写什么</th><th>长度</th><th>不写什么</th></tr>
+    <tr><td><b>overall_soundscape</b></td><td>环境音、物理动作音、非语言人声（风、雨、脚步、布料摩擦、呼吸、笑）</td><td>1–4 句英文，一段连续文字</td><td>不重复对白、歌唱和配乐</td></tr>
+    <tr><td><b>non_diegetic_music</b></td><td>乐器、速度、节奏、力度变化</td><td>1–3 句英文</td><td>不写抽象情绪，不解释「渲染了什么氛围」</td></tr>
+  </table>
+  </div>
+  <p>判断标准很简单：<b>角色能不能听到</b>。收音机、电视、手机铃声、街头艺人属于角色能听到的声音，写进 <code>integrated_multimodal_description</code>；只有观众能听到的配乐才进 <code>non_diegetic_music</code>。整段静音才写 <code>N/A</code>，没有音乐也写 <code>N/A</code> —— 不要留空。</p>
+
+  <h3>17.7 Ref2VA：六段式 + 四类标签</h3>
+  <p>带图 / 视频 / 音频参考时，不用基础模式，改用固定六段：</p>
+  <div class="formula flow">subject_definitions      →  定义 &lt;Subject N&gt; / &lt;Picture N&gt; / &lt;Video N&gt; / &lt;Audio N&gt;
+summary                  →  一句话概括要生成什么
+retention_analysis       →  哪些属性必须保留（外观、服装、场景、声音）
+detailed_description     →  带时间码的详细描述
+overall_soundscape       →  同基础模式
+non_diegetic_music       →  同基础模式</div>
+  <ul>
+    <li>四类标签各司其职：<code>&lt;Subject N&gt;</code> 是跨参考的<b>同一主体</b>，<code>&lt;Picture N&gt;</code> / <code>&lt;Video N&gt;</code> / <code>&lt;Audio N&gt;</code> 是按素材类型编号的引用源。</li>
+    <li>六个段落全英文；仅 <code>&lt;d&gt;</code> 内的对白歌词与画面可见文字保留原语言。</li>
+    <li>正文里出现的每个标签都必须先在 <code>subject_definitions</code> 里定义过，不能留未解析标签。</li>
+  </ul>
+
+  <h3>17.8 交付前自检</h3>
+  <div class="wrap-t">
+  <table>
+    <tr><th style="width:44px">#</th><th>检查项</th><th>常见错法</th></tr>
+    <tr><td>1</td><td>首行指令与模式匹配</td><td>I2VA 写成 FL2VA 的两图对齐；L2VA 写成 Shot 1</td></tr>
+    <tr><td>2</td><td>三个字段名、顺序、冒号完全一致</td><td>自创 <code>soundscape:</code>；把音乐写在描述里</td></tr>
+    <tr><td>3</td><td>Shot 1 无时间码，后续时间严格递增且不超过时长</td><td>从 <code>At 00:00.000</code> 开始；时间码回跳</td></tr>
+    <tr><td>4</td><td>说话人都有 ID，<code>&lt;d&gt;</code> 内没有翻译或改写</td><td>把中文台词翻成英文；在 <code>&lt;d&gt;</code> 外加引号</td></tr>
+    <tr><td>5</td><td>画外音写了 off-screen voiceover 并补嘴唇闭合</td><td>只写「旁白说」，画面里嘴还在动</td></tr>
+    <tr><td>6</td><td>静音 / 无配乐写 <code>N/A</code></td><td>整段留空，或写「无音乐」中文</td></tr>
+    <tr><td>7</td><td>画面文字在英文双引号内且逐字保留</td><td>翻译招牌文字；改成书名号</td></tr>
+    <tr><td>8</td><td>Ref2VA 六段齐全、标签全部定义</td><td>漏 <code>retention_analysis</code>；正文出现未定义标签</td></tr>
+  </table>
+  </div>
+  <div class="warn"><b>最后一条，仓库里反复强调：</b>中文 reference 只是对照材料，<b>终稿必须写英文</b>，也不要出现 <code>[镜头 1]</code> 这种中文标记 —— 模型侧只认 <code>[Shot 1]</code>。</div>
+</section>
+
+<section id="s18">
+  <h2><span class="num">18</span>病例排查：蒸馏加速后的视频模型</h2>
+  <p class="lead">这一节记录一类具体的工程组合：<b>基座视频模型 + 社区加速方案（turbo LoRA + DMD）+ few-step 采样</b>。典型现象是远处人脸模糊、打斗动作僵硬。把结论写在这里，以后再遇到同类问题直接对照。</p>
+
+  <h3>一句话根因</h3>
+  <p>人脸模糊是<b>空间高频</b>丢了，动作僵硬是<b>时间高频</b>丢了。这两类信息要保留下来，需要两个前提同时成立：<b>latent 分辨率够</b>、<b>采样步数够</b>。加速方案恰好把这两个前提各压了一遍 —— 所以问题往往不是「模型不会画」，而是「路走得太短，细节没机会长出来」。</p>
+
+  <h3>现象 → 主因排序</h3>
+  <div class="wrap-t">
+  <table>
+    <tr><th style="width:120px">现象</th><th>主因（概率最高）</th><th>次因</th></tr>
+    <tr><td><b>远处人脸糊</b></td><td>latent 里像素预算不够：远处人脸可能只占 1~2 个 token，压缩后就没了</td><td>DMD 把高频平均化；LoRA 容量偏小；训练数据里远景人脸本来就少</td></tr>
+    <tr><td><b>打斗僵硬</b></td><td>few-step 一步跳，运动轨迹被平滑成一条「平均路径」</td><td>打斗在通用数据里是长尾；3D VAE 的时间压缩；DMD 倾向输出典型样本</td></tr>
+  </table>
+  </div>
+
+  <h3>先做三个诊断，各半天</h3>
+  <div class="step"><div class="n">A</div><div class="b"><b>原版 / 加速版 / 你们的版，三组同跑</b>同一个 prompt、同一个种子各跑一遍。哪一组开始变糊，问题就在那一层 —— 只比两组定位不到加速方案。</div></div>
+  <div class="step"><div class="n">B</div><div class="b"><b>把远处人脸裁出来放大</b>放大后能看清 → 只是分辨率不够；放大后一团糊 → latent 里信息已经没了。</div></div>
+  <div class="step"><div class="n">C</div><div class="b"><b>统计光流幅度</b>和真实视频对比，如果系统性偏小，说明运动被压平了，而不是「动作不好看」。</div></div>
+
+  <div class="warn"><b>判据：</b>放大后能看清 → 分辨率问题，改模型没用，走裁剪超分；放大后看不清 → 信息不可逆，别再调参。</div>
+
+  <h3>诊断 A 的完整设计：三组对照</h3>
+  <p>中间夹着加速方案，所以两组不够。至少三组，有余力加第四组。</p>
+  <div class="wrap-t">
+  <table>
+    <tr><th style="width:130px">组</th><th>配置</th><th>回答什么问题</th></tr>
+    <tr><td><b>原版</b></td><td>官方 H3，原生步数，<code>guidance=1.0</code></td><td>基座本身能不能画清远处人脸</td></tr>
+    <tr><td><b>加速版</b></td><td>原版 + turbo LoRA + DMD，不做后训练</td><td>加速掉了多少画质</td></tr>
+    <tr><td><b>你们的版</b></td><td>加速版 + 后训练</td><td>后训练帮忙还是帮倒忙</td></tr>
+    <tr><td><b>第四组（可选）</b></td><td>原版 + 你们的后训练，不带加速</td><td>把「加速」和「后训练」彻底拆开</td></tr>
+  </table>
+  </div>
+
+  <div class="card">
+    <dl class="kv">
+      <dt>原版就糊</dt><dd>基座与分辨率问题，后训练救不回来，结论是提分辨率或走裁剪超分。</dd>
+      <dt>原版清、加速版糊</dt><dd>加速损失，回去修蒸馏配方，别急着加训练。</dd>
+      <dt>前两组清、你们版糊</dt><dd>后训练把模型训糊了：查训练数据分辨率、VAE 重编码损失、训练步数过多导致的回归均值。</dd>
+      <dt>远景普遍比近景差</dt><dd>正常现象，不是 bug。关键看差距有多大、是否随距离单调恶化。</dd>
+    </dl>
+  </div>
+
+  <h3>控制变量与量化</h3>
+  <p>不控住这些，实验就是白做：同一批 prompt、同一个种子（H3 确定性采样应可复现）；同分辨率、同帧数（边长 32 的倍数，帧数 17n+5）；guidance 一律 1.0；同一 VAE 解码、同一后处理，<b>不要一边加超分一边不加</b>；记录各组实际步数 —— 这是最容易漏的隐藏变量。</p>
+  <p>量化方式：按人脸框短边像素分桶（&lt;24 / 24–48 / 48–96 / &gt;96），每桶统计检测成功率、关键点置信度、面部 ROI 的 Laplacian 方差，再补一组打乱顺序的人工盲评（两人以上）。</p>
+
+  <div class="note"><b>预期：</b>768p 的模型，远处人脸只有几十像素，<b>原版大概率也是糊的</b>。这不是 H3 独有的缺陷，而是行业共性。这个实验最大的价值，是让你们有数据支撑地决定「别再往这个方向投训练资源」。</div>
+
+  <h3>SFT 能做什么，RL 能做什么</h3>
+  <div class="wrap-t">
+  <table>
+    <tr><th style="width:190px">问题类型</th><th style="width:170px">该用什么</th><th>为什么</th></tr>
+    <tr><td>数据里没有（远景人脸、打斗）</td><td><b>SFT 补数据</b></td><td>最直接，成本可控；先查训练集里这类样本的占比</td></tr>
+    <tr><td>基座本身就不会画</td><td><b>SFT</b></td><td>但别指望 RL 凭空造出能力</td></tr>
+    <tr><td>能力有、被采样路径压平</td><td><b>改蒸馏配方</b></td><td>SFT 只会回归均值，越训越保守；要动步数、DMD 目标与叠加顺序</td></tr>
+    <tr><td>有明确可打分的指标（清晰度、光流幅度、动作分类置信度）</td><td><b>RL</b></td><td>但 few-step 模型要先解决 log-prob：ODE→SDE，或用不依赖 log-prob 的 DiffusionNFT 路线</td></tr>
+    <tr><td>信息在 latent 里就没有</td><td><b>谁都不行</b></td><td>只能提分辨率，或裁剪后单独超分再贴回</td></tr>
+  </table>
+  </div>
+
+  <div class="warn"><b>RL 的陷阱：</b>在人脸信息本来就丢光的模型上做 RL，最容易出现「奖励涨、观感更差」。先把蒸馏修好，再谈 RL。</div>
+
+  <h3>稀疏注意力值不值得改</h3>
+  <p>它解决的是速度和显存，不解决清晰度和运动。真正的风险是<b>反噬</b>：远处小目标的 token 本来就少，稀疏化最先砍掉的就是它们。</p>
+  <div class="card">
+    <dl class="kv">
+      <dt>有意义</dt><dd>显存或速度是瓶颈，并且愿意用省下的预算去换更高分辨率、更长帧数 —— 那是间接改善。</dd>
+      <dt>没意义</dt><dd>指望它让脸更清楚、动作更自然。方向不对。</dd>
+      <dt>要做就做</dt><dd>只在低分辨率 / 高层阶段稀疏，精细阶段保持 dense；加显著性 token 保护，别把小目标裁掉。</dd>
+    </dl>
+  </div>
+
+  <p><b>注意力方案对照。</b>名字不重要，看它落在哪一档：</p>
+  <div class="wrap-t">
+  <table>
+    <tr><th style="width:150px">方案</th><th style="width:110px">复杂度</th><th>画质代价</th><th>实现难度</th></tr>
+    <tr><td><b>Dense</b>（全注意力）</td><td><code>O(N²)</code></td><td>无，基线</td><td>最低</td></tr>
+    <tr><td><b>固定稀疏</b>（滑窗 / 带状 / 跨步）</td><td><code>O(N·w)</code></td><td>小，长程依赖变弱</td><td>低，加 mask 即可</td></tr>
+    <tr><td><b>分块稀疏</b>（按块选 top-k）</td><td><code>O(N·k)</code></td><td>中</td><td>中，能用变长（varlen）接口</td></tr>
+    <tr><td><b>数据驱动稀疏</b>（按分数选 token top-k）</td><td><code>O(N·k)</code></td><td>中到大，<b>要微调</b></td><td>高，得写定制 kernel</td></tr>
+    <tr><td><b>线性注意力</b>（核方法替 softmax）</td><td><code>O(N)</code></td><td>大，基本要重训</td><td>高</td></tr>
+    <tr><td><b>稀疏 + 线性混合</b></td><td><code>O(N·k + N)</code></td><td>中</td><td>很高，两套路径都要调</td></tr>
+  </table>
+  </div>
+
+  <p>回到被问到的三个名字：<b>dense</b> 就是第一行的基线；<b>VDN</b> 对应社区的 VDN-H3，属于<b>线性混合注意力</b>那一档（不是 token top-k 稀疏）；<b>Sol attention</b> 见下面这张卡 —— 它已经能对上号了，而且它<b>不属于上面任何一档</b>。</p>
+
+  <div class="note"><b>Sol-Attn 是什么（已确认）：</b>它不是一种「更省算力的注意力形状」，而是 <b>Sol-Engine / Sol-H3</b> 这套引擎级加速方案里的注意力实现（arXiv 2609.35110，2026-09）。三件事拼起来：<b>① 跨分辨率两阶段调度</b> —— 低分辨率快速定全局布局，高分辨率只补局部细节；<b>② 两阶段之间用一个学习式的 latent-to-latent 映射衔接</b>，不走「VAE 解码 → 放大 → 再编码」；<b>③ 算子层自动搜索</b>（论文叫 Recursive Self-Improvement，循环搜 kernel 融合与显存布局，同时校验数值一致性）。论文宣称端到端最高 <b>30×</b>、显存降 <b>20%</b>；ComfyUI 侧有社区插件，单卡实测大约 2~9×，取决于卡型与量化。</div>
+
+  <div class="warn"><b>怎么看「87.26 s → 37.39 s（2.33×）」那张表：</b>这是<b>单段前向</b>的对比，而且两边不止差在注意力 —— 一边是 dense + BF16，另一边是 Sol-Attn + <b>MXFP8 量化</b> + <b>CUDA graphs</b>。2.33× 是三者叠加的结果，不能全记在注意力头上。要和自己方案比，先把 dtype、是否开 CUDA graphs 对齐，再看注意力本身贡献多少。</div>
+
+  <div class="card">
+    <dl class="kv">
+      <dt>不难的</dt><dd>选哪些 token、算哪几个块 —— 几行 torch 就能写出来。</dd>
+      <dt>真正难的①</dt><dd>变长 attention 的高效 kernel。每个 head 选出的集合不同，Python 层先 gather 再喂进去，通常比 dense 还慢 3~10 倍，必须写 Triton/CUDA。</dd>
+      <dt>真正难的②</dt><dd>负载均衡。head 之间稀疏模式不同，SM 利用率不均；开序列并行还要多一轮通信。</dd>
+      <dt>真正难的③</dt><dd>训练不稳定。mask 每步都变，梯度噪声大，与 DMD / LoRA 叠加更不稳。</dd>
+      <dt>真正难的④</dt><dd>调参空间大。k 太省没加速、太小掉画质，且不同层、不同去噪步的最优 k 都不同，照抄论文容易翻车。</dd>
+    </dl>
+  </div>
+
+  <div class="warn"><b>对当前组合的判断：</b>4 步、33B、视频 —— 稀疏注意力不该当画质手段用。它唯一值得做的理由是<b>用省下的算力换分辨率或帧数</b>：能从 768p 上到 1080p，对远处人脸才是真收益（那是 token 预算问题）。真要做，选<b>分块稀疏、只在低分辨率阶段开</b>，别一上来就做数据驱动的 token top-k。</div>
+
+  <h3>二阶段采样与远景人脸模糊的关系</h3>
+  <p>全片二采能在高清 latent 上补整体纹理，但远处人脸仍可能只占很少 token，所以全局更锐不代表小脸恢复。Full-X0、Mid-trajectory、局部裁剪和 SeedVR 的原理、速度账与风险统一放在 <a href="#s12">第 12 节</a>；这里保留排错重点：先判断问题来自低分辨率 token 预算，还是成片后的局部恢复。</p>
+  <div class="note"><b>排错顺序：</b>先固定 base、LoRA、总 NFE 和 seed 与单阶段基线比较；结构/运动错，回到采样或蒸馏路线；只有小区域细节不足，再评估局部裁剪精修；已生成成片要增强时才比较 SeedVR 类恢复。</div>
+
+  <h3>落地优先级</h3>
+  <div class="step"><div class="n">1</div><div class="b"><b>先跑诊断 A。</b>分清「基座问题」还是「蒸馏损失」，别急着加训练。</div></div>
+  <div class="step"><div class="n">2</div><div class="b"><b>若是蒸馏损失：</b>步数 4→8 试一遍；检查 DMD 的 fake score 更新频率；确认 turbo LoRA 与 DMD 的叠加顺序（两个都在改采样路径，很容易双重压缩）。</div></div>
+  <div class="step"><div class="n">3</div><div class="b"><b>人脸：</b>先上「检测 → 裁剪 → 超分 → 贴回」的两阶段流程，性价比远高于改模型。</div></div>
+  <div class="step"><div class="n">4</div><div class="b"><b>动作：</b>把「运动强度」做成条件标签（训练时按光流幅度分桶），推理时显式给高强度，比直接上 RL 更快见效。</div></div>
+  <div class="step"><div class="n">5</div><div class="b"><b>稀疏注意力放最后</b>，只当加速手段，不当质量手段。</div></div>
+
+  <div class="note"><b>社区加速方案的共性坑：</b>固定 4 步、guidance 已蒸馏（别填 5/7）、LoRA rank 偏小、训练数据分布是别人的。继承的不只是权重，还有别人的数据短板 —— 所以「远处人脸」「打斗」这类长尾，天然是这类方案的弱项。</div>
+</section>
+
+<section id="s19">
+  <h2><span class="num">19</span>远景人脸为什么糊：归因与修复</h2>
+  <p class="lead">这是视频生成里被问得最多的问题，也是回答得最含糊的一个：「到底是 VAE 的锅还是 DiT 的锅？」准确答案是<b>三个都有，但作用在不同环节</b> —— token 预算决定「有没有容量画」，VAE 决定「最多能画多细」，分块解码决定「拼回去时又损失多少」，后处理决定「最后还剩多少」。先定位丢在哪一段，再决定修还是重跑。</p>
+
+  <h3>19.1 先把「糊」拆成四种</h3>
+  <div class="wrap-t">
+  <table>
+    <tr><th style="width:130px">类型</th><th>表现</th><th>本质</th><th>修法方向</th></tr>
+    <tr><td><b>分辨率不足</b></td><td>放大后是一团平滑的色块，没有结构</td><td>latent 网格里这块区域只有 1~2 个 token，模型<b>没有位置画五官</b></td><td>提高有效分辨率、局部重绘</td></tr>
+    <tr><td><b>压缩损失</b></td><td>轮廓对、位置对，但睫毛、牙齿、瞳孔的细节一律没有；皮肤过度平滑</td><td>VAE 的空间压缩把高频先丢掉了，解码时补不回来</td><td>更高保真 VAE、tile VAE、修复模型</td></tr>
+    <tr><td><b>分块伪影</b></td><td>网格状的接缝、等间距的糊斑；块内清楚，块与块之间断层</td><td>tiled VAE 分块编解码，每块独立处理，拼接处没有共享上下文</td><td>加大 tile / overlap、关掉 tiling</td></tr>
+    <tr><td><b>生成失败</b></td><td>不是模糊，是<b>错</b>：五官位置漂移、眼睛数量不对、脸型逐帧变</td><td>采样 / 时序问题，模型没画对</td><td>只能重绘，修复救不了</td></tr>
+  </table>
+  </div>
+  <p>这四种在成片里经常混在一起，但处理的优先级完全不同。判断顺序应该是：<b>先看结构对不对，再看是不是网格状，然后看细节有没有，最后才谈清晰度</b>。结构都不对的时候做超分或人脸修复，只会把错误放大得更清楚。</p>
+
+  <h3>19.2 一条链，五处丢信息</h3>
+  <figure class="fig">
+    <div class="fig-h">Fig 14 · 从构图到成片：人脸细节在哪一段丢的</div>
+    <div class="figbody">
+    <svg class="fx" viewBox="0 0 820 250" role="img" aria-label="远景人脸在 token 网格、VAE 解码与后处理三段中逐步丢失细节">
+      <defs><marker id="m14" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah" d="M0 0 L10 5 L0 10 z"/></marker></defs>
+
+      <rect class="n" x="8" y="56" width="176" height="104" rx="10"/>
+      <text class="t" x="96" y="84" text-anchor="middle">画面里的 64 px 人脸</text>
+      <text class="s" x="96" y="108" text-anchor="middle">1080P 远景只占很小一块</text>
+      <text class="s" x="96" y="130" text-anchor="middle">观众照样一眼看脸</text>
+
+      <rect class="n-w" x="216" y="56" width="176" height="104" rx="10"/>
+      <text class="t" x="304" y="84" text-anchor="middle">DiT 的 latent 网格</text>
+      <text class="s" x="304" y="108" text-anchor="middle">32 px 才一个 token</text>
+      <text class="s" x="304" y="130" text-anchor="middle">整张脸只剩 2×2 格</text>
+
+      <rect class="n-a" x="424" y="56" width="176" height="104" rx="10"/>
+      <text class="t" x="512" y="84" text-anchor="middle">VAE 解码</text>
+      <text class="s" x="512" y="108" text-anchor="middle">16× 压缩 + 分块拼接</text>
+      <text class="s" x="512" y="130" text-anchor="middle">高频丢 + 接缝糊</text>
+
+      <rect class="n" x="632" y="56" width="180" height="104" rx="10"/>
+      <text class="t" x="722" y="84" text-anchor="middle">后处理往返</text>
+      <text class="s" x="722" y="108" text-anchor="middle">二采 / i2i 每过一次</text>
+      <text class="s" x="722" y="130" text-anchor="middle">编解码就再损失一次</text>
+
+      <path class="ln" d="M184 108 H212" marker-end="url(#m14)"/>
+      <path class="ln" d="M392 108 H420" marker-end="url(#m14)"/>
+      <path class="ln" d="M600 108 H628" marker-end="url(#m14)"/>
+
+      <text class="s" x="8" y="196">token 预算：决定「有没有位置画」 —— 远景的硬上限</text>
+      <text class="s" x="424" y="196">VAE：决定「能画多细」，分块还会另外留接缝</text>
+      <text class="s" x="8" y="226">后处理：决定「已经画出来的东西还剩多少」 —— 只会做减法</text>
+    </svg>
+    </div>
+    <figcaption><b>顺序很重要：</b>先有 token 才能画，先解码才算完，后处理只能减不能加。所以「远景糊」的第一嫌疑永远是 token 预算，不是 VAE。</figcaption>
+  </figure>
+
+  <p><b>算一笔账就清楚了。</b>H3 是 16× VAE + 2×2 patchify，也就是一个 latent token 覆盖 <b>32×32 像素</b>。704×1216 的成片里，一个远景人脸高 64 px，映射到 latent 就只有 2 格高 —— 整张脸 4 个 token。<b>4 个 token 画不出眼睛、鼻子、嘴的相对位置</b>，这不是糊，是信息容量根本不够。</p>
+  <p>反过来，近景人脸占 300 px 高，约 9×9 个 token，容量够了，此时的模糊才轮到 VAE 负责 —— 16× 压缩对皮肤纹理、睫毛、牙齿这类高频本来就不友好。</p>
+  <div class="note"><b>一句话结论：</b>远景糊，主因是<b>token 预算</b>（DiT 侧的分辨率分配）；近景糊，主因是<b>VAE 的高频截止</b>。两者叠加时，先解决 token，再谈 VAE。</div>
+
+  <h3>19.3 三步实验：怎么确定是哪一个</h3>
+  <div class="step"><div class="n">1</div><div class="b"><b>把 GT 视频过一遍 VAE 编解码。</b>如果细节损失明显（尤其是皮肤、发丝、文字），VAE 就是天花板 —— 再怎么采样也超不过它。</div></div>
+  <div class="step"><div class="n">2</div><div class="b"><b>裁出远景人脸放大看。</b>放大后是平滑色块、没有任何结构，说明 token 不足；如果放大后有结构、只是纹理丢失，说明容量够、是 VAE 或后处理的问题。</div></div>
+  <div class="step"><div class="n">3</div><div class="b"><b>同 prompt 用 2× 分辨率重跑。</b>清晰度明显提升 → token 预算问题；依然糊 → VAE / 解码问题；结构变了但没变清楚 → 采样问题。</div></div>
+  <div class="wrap-t">
+  <table>
+    <tr><th style="width:230px">观察到的现象</th><th>归因</th><th>验证</th></tr>
+    <tr><td>糊的程度和「人脸在画面里占多少像素」强相关</td><td>token 预算</td><td>统计人脸框高度 vs 清晰度，画散点看是否单调</td></tr>
+    <tr><td>同一 latent 反复解码，糊的形态固定不变</td><td>VAE</td><td>换一个 decoder 解同一个 latent，看细节是否回来</td></tr>
+    <tr><td>轮廓在动，五官逐帧乱跳</td><td>采样 / 时序</td><td>逐帧看结构，不是模糊而是错位</td></tr>
+    <tr><td>二采之后反而更糊</td><td>VAE 往返</td><td>对比 1 次与 2 次编解码的细节损失</td></tr>
+    <tr><td>只有运动快的几帧糊</td><td>运动 / 注意力</td><td>光流幅度与清晰度做相关性</td></tr>
+    <tr><td>糊斑和接缝呈网格状、等间距，换 tile 尺寸后位置就变</td><td>分块编解码</td><td>同一 latent 用 256 / 512 / 1024 三种 tile 各解一次对比</td></tr>
+  </table>
+  </div>
+
+  <h3>19.4 分块解码：第五处损失，而且是实现层的</h3>
+  <p>前面几处都是模型结构决定的，还有一个经常被漏掉、却完全属于工程实现的来源：<b>tiled VAE decode</b>。高分辨率 latent 一次性解码激活会爆显存，几乎所有推理框架都会把 latent 切成块分别解码再拼回去 —— 空间上切 tile、时间上切 chunk，或者两者都切。</p>
+  <p>它带来的问题不是「均匀变糊」，而是<b>有规律的、网格状的退化</b>，所以很好认，但很容易被误判成 VAE 本身的压缩损失。</p>
+  <div class="wrap-t">
+  <table>
+    <tr><th style="width:150px">机制</th><th>看到的现象</th><th>为什么</th></tr>
+    <tr><td>每块独立解码</td><td>块边界亮度 / 色调跳变、纹理断裂</td><td>相邻块对同一区域的解释不一致，拼起来没有共享上下文</td></tr>
+    <tr><td>感受野被截断</td><td>块边缘的发丝、人脸轮廓被抹平</td><td>解码器在边界外补零，块的边缘只剩一半有效上下文</td></tr>
+    <tr><td>overlap 加权融合</td><td>边界处一圈发虚，像蒙了层雾</td><td>两块各自糊了一次，加权平均仍然是糊</td></tr>
+    <tr><td>时间维切段</td><td>段边界那几帧闪一下、运动不连续</td><td>3D VAE 的时间建模被切断，每段独立解码</td></tr>
+    <tr><td>伴随的精度差异</td><td>局部颜色偏移、暗部色带</td><td>分块常配合 fp16 累加，误差在边界累积</td></tr>
+  </table>
+  </div>
+  <div class="note"><b>三步确诊：</b>
+  <ul>
+    <li>用同一个 latent，分别按 256 / 512 / 1024 的 tile 各解一次 —— 糊斑与接缝<b>跟着 tile 尺寸移动</b>，就是分块解码。</li>
+    <li>量接缝位置 —— 是否等间距、间距是否约等于 tile 宽（或 tile 宽减 overlap）。</li>
+    <li>裁一块出来单独解码 —— 块内部清楚、只有边界断层，说明信息没丢，是拼接丢的。</li>
+  </ul></div>
+  <div class="wrap-t">
+  <table>
+    <tr><th style="width:150px">判断维度</th><th>token 不足</th><th>VAE 压缩</th><th>分块解码</th></tr>
+    <tr><td>空间分布</td><td>与「人脸占多少像素」强相关</td><td>全图均匀，近景才明显</td><td>网格状、周期性，与人脸无关</td></tr>
+    <tr><td>换分辨率</td><td>明显改善</td><td>基本不变</td><td>不变（除非 tile 相对画面变大）</td></tr>
+    <tr><td>放大局部看</td><td>平滑色块、无结构</td><td>有结构、无纹理</td><td>块内正常、边界断层</td></tr>
+    <tr><td>时间表现</td><td>通常稳定</td><td>稳定</td><td>时间分块时逐段闪</td></tr>
+    <tr><td>解法</td><td>加 token</td><td>换 VAE / 补高频</td><td>加大 tile 与 overlap、关 tiling</td></tr>
+  </table>
+  </div>
+  <p><b>怎么治：</b></p>
+  <ul>
+    <li><b>加大 tile、提高 overlap。</b>overlap 一般给到 tile 的 1/4 以上，越大越平滑、越慢；硬拼不加 overlap 是最差的做法。</li>
+    <li><b>时间维尽量不切。</b>temporal tile 设成全片，或至少重叠 4 个 latent 帧，否则段边界必闪。</li>
+    <li><b>只切空间、不切时间。</b>显存不够时优先沿高度方向切，比时空全切温和得多。</li>
+    <li><b>交付级渲染关掉 tiling。</b>分块只用于预览和批量出片；最终成片用整图解码，或用 batch 换显存而不是用 tile。</li>
+    <li><b>编码侧同理。</b>tiled encode 也会在边界引入漂移，i2i 精修、参考图编码、二采放大前的那次编码都会中招。</li>
+  </ul>
+  <div class="warn"><b>和第 14 节的分块解码参数是同一件事的两面：</b>分块能省显存，但会增加拼接边界并可能延长解码时间；这里再补充画质代价 —— 它同时还<b>拿画质换显存</b>。而且这一层损失可以完全避免：它不来自模型，只来自你用的那套解码实现和参数。</div>
+
+  <h3>19.5 三条修法，按「信息注入点」排</h3>
+  <div class="wrap-t">
+  <table>
+    <tr><th style="width:150px">路线</th><th>做什么</th><th>成本</th><th>适用</th></tr>
+    <tr><td><b>加 token（根本解）</b></td><td>提高分辨率、二采到高分辨率、对人脸区域局部高分辨率重绘</td><td>高（token²）</td><td>人脸占比小、要求成片可交付</td></tr>
+    <tr><td><b>改 VAE（软解）</b></td><td>更高保真的 VAE、latent 上补高频残差</td><td>低~中</td><td>近景细节不足、VAE 往返次数多</td></tr>
+    <tr><td><b>改解码参数（零成本）</b></td><td>加大 tile 与 overlap、时间维不切、交付级整图解码</td><td>几乎为零（只慢一点）</td><td>有网格状接缝、等间距糊斑时先做这一步</td></tr>
+    <tr><td><b>人脸精修（补丁解）</b></td><td>检测 → 裁剪对齐 → 修复模型重绘 → 贴回</td><td>低（只处理人脸区域）</td><td>结构对、只是不清楚</td></tr>
+    <tr><td><b>训练侧加权</b></td><td>人脸区域 loss 加权、face-centric 数据配比</td><td>要训练</td><td>自己训模型、长期收益</td></tr>
+  </table>
+  </div>
+  <p>这五条里，<b>加 token 是唯一真正把「不存在的信息」生成出来的</b>；改 VAE、人脸精修、改解码参数都属于第 12 节路线图里「解码之后补信息 = 还原」，只做加法，其中改解码参数连加法都不算，只是把原本不该丢的捡回来。</p>
+
+  <h3>19.6 人脸修复算法谱系</h3>
+  <p>「face refine」在不同团队嘴里指三类完全不同的东西，效果和风险差别很大：</p>
+  <div class="wrap-t">
+  <table>
+    <tr><th style="width:170px">类别</th><th>代表</th><th>原理</th><th>风险</th></tr>
+    <tr><td><b>盲人脸修复</b></td><td>GFPGAN · CodeFormer · RestoreFormer++</td><td>学一个「退化人脸 → 清晰人脸」的映射，可用身份/质量先验约束</td><td>对生成视频里「非真实」的脸容易过度平滑，表情变僵；逐帧跑会闪</td></tr>
+    <tr><td><b>扩散先验修复</b></td><td>DiffBIR · SUPIR</td><td>用扩散模型的生成先验 + 结构引导补细节，能「长」出新纹理</td><td>会改内容，身份漂移；慢，且需要调 strength</td></tr>
+    <tr><td><b>局部重绘</b></td><td>任意 inpaint / 视频重绘管线</td><td>把人脸区域挖掉，用原 prompt + 参考帧重新生成</td><td>最贵，但唯一能修「结构错」的办法</td></tr>
+    <tr><td><b>商业成片工具</b></td><td>Topaz Video AI 类</td><td>超分 + 人脸恢复 + 时序稳定打包</td><td>黑盒，参数不透明，批量贵</td></tr>
+  </table>
+  </div>
+  <p>工程上一条可用管线通常是：<b>人脸检测（RetinaFace / SCRFD）→ 跟踪（ByteTrack 一类，拿到跨帧 ID）→ 5 点对齐仿射裁剪 → 修复模型 → 逆变换贴回 → 时序融合</b>。检测和对齐这两步决定了后面所有步骤的上限 —— 框抖一下，脸就抖一下。</p>
+
+  <h3>19.7 贴回时的四个坑</h3>
+  <ul>
+    <li><b>抖动。</b>逐帧独立修复，五官会轻微跳动。解法：按跟踪 ID 做时序平滑（EMA），或用光流把上一帧的修复结果 warp 过来当初值。</li>
+    <li><b>接缝。</b>裁剪框边界出现一圈突变。解法：羽化 mask + 泊松融合，必要时把裁剪框放大 20% 留过渡区。</li>
+    <li><b>身份漂移。</b>修完不像本人。解法：加身份相似度约束（ArcFace 特征余弦）、降低修复强度、用参考帧做引导。</li>
+    <li><b>过度平滑。</b>皮肤被磨平、牙齿变白、眼神光消失。解法：降 strength、混回原图的高频、只在结构区域重绘。</li>
+  </ul>
+  <div class="warn"><b>顺序反了会白干：</b>先修脸再做全片超分，超分会把修复痕迹再糊一遍；正确顺序是<b>先超分到交付分辨率，再做人脸精修</b>，精修完不要再过 VAE 或任何重编码。</div>
+
+  <h3>19.8 修还是重跑：一张决策表</h3>
+  <div class="wrap-t">
+  <table>
+    <tr><th style="width:190px">情况</th><th>建议</th><th>理由</th></tr>
+    <tr><td>人脸高度 &lt; 48 px</td><td><b>重跑</b>，提高分辨率或二采</td><td>token 根本不够，修复只能贴一张「像脸的东西」</td></tr>
+    <tr><td>48~96 px，结构对但糊</td><td>人脸精修有效</td><td>结构信息在，只缺高频</td></tr>
+    <tr><td>结构错（眼睛位置乱、脸型变）</td><td>局部重绘，不要用修复</td><td>修复只会把错误变清楚</td></tr>
+    <tr><td>只有个别帧崩</td><td>局部重绘 + 时序约束</td><td>整片重跑代价太大</td></tr>
+    <tr><td>交付大尺寸、人脸占比小</td><td>全片超分 → 人脸精修</td><td>顺序不能反</td></tr>
+    <tr><td>整片普遍偏软</td><td>先查 VAE / 解码，再查采样步数</td><td>可能根本不是人脸问题</td></tr>
+  </table>
+  </div>
+
+  <h3>19.9 修完怎么证明修好了</h3>
+  <ul>
+    <li><b>局部指标：</b>裁出人脸区域单独算 LPIPS / DISTS；有参考身份时算 ArcFace 余弦相似度。</li>
+    <li><b>时序指标：</b>人脸区域的光流 warp error，确认修复没有引入新的抖动。</li>
+    <li><b>不要只看均值：</b>记录最差的那几张脸 —— 修复算法的失败通常是「大多数更好、少数崩掉」。</li>
+    <li><b>盲测：</b>修前 / 修后随机左右，10 条起，人工选「更自然」的那条；只问「更清晰」会系统性偏向过度锐化。</li>
+  </ul>
+</section>
+
+<div class="part"><span>APPENDIX</span><b>附录：学习路径</b><i>20 节</i></div>
+
+<section id="s20">
+  <h2><span class="num">20</span>学习路径</h2>
+  <p class="lead">不要按论文发表顺序读，按「解决问题的顺序」读，一周就能建立完整判断力。</p>
+
+  <div class="step"><div class="n">1</div><div class="b"><b>第 1 天：直觉。</b>跑 <code>toy_grpo.py</code>，改 G 和 noise，看曲线怎么变。再看本页第 1~3 节。</div></div>
+  <div class="step"><div class="n">2</div><div class="b"><b>第 2~3 天：GRPO 原文。</b>DeepSeekMath（arXiv 2402.03300）第 4 节，只看优势估计和目标函数，推导可跳过。</div></div>
+  <div class="step"><div class="n">3</div><div class="b"><b>第 4~5 天：扩散 RL 的三堵墙。</b>Flow-GRPO（2505.05470）看 ODE→SDE 与 Denoising Reduction 两节，配合代码看更清楚。</div></div>
+  <div class="step"><div class="n">4</div><div class="b"><b>第 6 天：工程实现。</b>DanceGRPO（2505.07818）的仓库，重点看 SDE 采样器和奖励接口怎么解耦。</div></div>
+  <div class="step"><div class="n">5</div><div class="b"><b>第 7 天：稳定性。</b>GRPO-Guard（2510.22319）解释「为什么训着训着变差」，读完你会对曲线异常敏感得多。</div></div>
+
+  <h3>只读三篇的话</h3>
+  <div class="card">
+    <dl class="kv">
+      <dt>必读 1</dt><dd><b>DeepSeekMath</b> — GRPO 的出处，理解「组内均值当基线」的原始动机。</dd>
+      <dt>必读 2</dt><dd><b>Flow-GRPO</b> — 扩散模型怎么接上 GRPO，ODE→SDE 的工程细节都在这。</dd>
+      <dt>必读 3</dt><dd><b>GRPO-Guard</b> — 训练后期崩掉的机理与修法，决定你能不能把训练跑长。</dd>
+    </dl>
+  </div>
+
+  <div class="note"><b>下一步：</b>完整论文清单（含 arXiv 编号与开源仓库）见同目录 <code>papers.md</code>；可以直接跑的对照实验见 <code>toy_grpo.py</code>。</div>
+</section>
+
+<footer class="src">
+  <b>资料说明：</b>本文为阅读笔记，算法描述以原论文为准；MiniMax H3 的模型参数与训练配方来自其开源仓库与社区复现记录，实际数值请以官方 README 与 release 为准。训练前务必按第 10 节的六项验收自检。
+</footer>
+</main>
+</div>
+</div>
+<button class="totop" type="button" aria-label="回到顶部">↑</button>
+<script>
+(function(){
+  var bar=document.querySelector('.progress i');
+  var top=document.querySelector('.totop');
+  var links=[].slice.call(document.querySelectorAll('nav.toc a'));
+  var secs=links.map(function(a){return document.querySelector(a.getAttribute('href'))});
+  function onScroll(){
+    var max=document.documentElement.scrollHeight-window.innerHeight;
+    if(bar){bar.style.width=(max>0?Math.min(100,window.scrollY/max*100):0)+'%'}
+    if(top){top.classList.toggle('show',window.scrollY>620)}
+    var idx=0;
+    for(var i=0;i<secs.length;i++){
+      if(secs[i]&&secs[i].getBoundingClientRect().top<=150){idx=i}
+    }
+    if(idx!==onScroll.last){
+      onScroll.last=idx;
+      links.forEach(function(a,i){a.classList.toggle('on',i===idx)});
+      var nav=document.querySelector('nav.toc');
+      if(nav&&links[idx]&&nav.scrollHeight>nav.clientHeight){
+        nav.scrollTop=Math.max(0,links[idx].offsetTop-nav.clientHeight/2+links[idx].offsetHeight/2);
+      }
+    }
+  }
+  window.addEventListener('scroll',onScroll,{passive:true});
+  window.addEventListener('resize',onScroll);
+  onScroll();
+  if(top){top.addEventListener('click',function(){window.scrollTo({top:0,behavior:'smooth'})})}
+
+  var reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var items=document.querySelectorAll('figure.fig, .card, .wrap-t, .note, .warn, .formula, .step');
+  if(reduce||!('IntersectionObserver' in window)){
+    return;
+  }
+  items.forEach(function(el){el.classList.add('reveal')});
+  var io=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}
+    });
+  },{rootMargin:'0px 0px -6% 0px',threshold:0.05});
+  items.forEach(function(el){io.observe(el)});
+  function sweep(){
+    items.forEach(function(el){
+      if(el.classList.contains('in'))return;
+      var r=el.getBoundingClientRect();
+      if(r.top<window.innerHeight&&r.bottom>0){el.classList.add('in');io.unobserve(el)}
+    });
+  }
+  window.addEventListener('hashchange',function(){setTimeout(sweep,80)});
+  window.addEventListener('load',function(){setTimeout(sweep,150)});
+})();
+</script>
+</body>
+</html>

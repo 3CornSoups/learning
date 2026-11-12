@@ -1,0 +1,13 @@
+[project]
+name = "douyin-server-crawler"
+version = "0.2.0"
+description = "Portable server entry point for the validated F2 Douyin downloader"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "f2==0.0.1.7",
+    "httpx==0.27.2",
+    "tqdm==4.70.1",
+]
+
+[tool.uv]
+package = false

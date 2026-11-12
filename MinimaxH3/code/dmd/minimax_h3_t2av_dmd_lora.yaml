@@ -1,0 +1,186 @@
+# =============================================================================
+# MiniMax-H3 T2AV DMD LoRA 正式训练配置
+# =============================================================================
+# 训练方式：Distribution Matching Distillation (DMD)，将多步 teacher 蒸馏为 4-step student。
+# 数据要求：仅需文本 prompt 缓存（无需真实视频），见 scripts/build_prompt_cache.sh。
+# 多卡要求：student + fake + teacher 三模型同时驻留，建议 FSDP2 + 多 GPU（通常 8 卡）。
+# 分辨率/帧数：决定蒸馏在什么「画布」上练，训练与推理应尽量对齐。
+# =============================================================================
+
+model:
+    # 模型注册名，对应 MiniMaxH3T2AVModel
+    name: minimax_h3_t2av
+    # 本地 MiniMax-H3 权重目录（含 transformer/config.json）
+    pretrained_model_name_or_path: ${oc.env:MINIMAX_H3_MODEL_PATH}
+    # 前向计算/激活默认精度（bf16 推荐）
+    running_dtype: bf16
+    # Transformer 权重加载精度
+    transformer_param_dtype: bf16
+    # 只从本地加载，不访问 HuggingFace Hub
+    local_files_only: true
+    # H3 视频 patch 大小 [时间, 高, 宽]，T2AV 时间维 patch 固定为 1
+    patch_size: [1, 2, 2]
+    # 视频 latent 通道数（与 H3 VAE 一致）
+    video_latent_channels: 24
+    # 音频 latent 通道数
+    audio_latent_channels: 32
+    # VAE 空间下采样倍数：latent_h = height / 16
+    vae_spatial_scale_factor: 16
+    # 注意力后端：_flash_3_hub 需 flash-attn3；无 flash-attn 时改为 _native_flash
+    attention_backend: _native_flash
+
+distributed:
+    # 分布式通信后端
+    backend: nccl
+    # NCCL 集合通信超时（分钟），大模型初始化可适当加大
+    timeout_minutes: 60
+    sequence_parallel:
+        # 序列并行（Ulysses 等），H3 长序列可开；与 fsdp2.size 乘积须等于 WORLD_SIZE
+        enabled: false
+        size: 1
+    fsdp2:
+        # 多卡时启用 FSDP2 分片，单卡 OOM 时必须开
+        enabled: true
+        # 数据并行/FSDP 组大小，默认等于 torchrun 的 nproc_per_node
+        size: ${oc.env:WORLD_SIZE,1}
+        reshard_after_forward:
+            # 根模块 forward 后是否重分片（省显存 vs 速度）
+            root_reshard: false
+            # 每个 DiT block forward 后重分片，推荐 true
+            block_reshard: true
+        # H3 checkpoint 中投影层 fp32 + block bf16 混用；加载时会统一 cast 以兼容 FSDP2
+        mixed_precision:
+            param_dtype: null
+            reduce_dtype: fp32
+            output_dtype: null
+            cast_forward_inputs: false
+
+data:
+    train:
+        # 数据集类型：DMD 使用预编码文本条件缓存（非在线编码）
+        name: latent_dataset
+        # 正式训练缓存：scripts/build_prompt_cache_dimensions.sh 生成
+        # 源数据在 prompts/dimensions/（11 维度 × *_enhanced.txt，约 946 条）
+        data_path: ${oc.env:MINIMAX_H3_PROMPT_CACHE}
+        # H3 T2AV DMD 当前仅支持 batch_size=1
+        batch_size: 1
+        # DataLoader worker 数
+        num_workers: 2
+        pin_memory: true
+        shuffle: true
+        # 多卡时：样本数 < GPU 数且 drop_last=true 会导致每 rank 无数据并死循环，需注意
+        drop_last: false
+
+scheduler:
+    # Flow matching 训练时间步总数（与推理 scheduler 一致）
+    num_train_timesteps: 1000
+    # 训练时采样 timestep 的分布
+    timestep_distribution: uniform
+    min_t: 0.001
+    max_t: 1.0
+
+training:
+    # 训练器：MiniMax-H3 文生音视频 DMD
+    method: minimax_h3_t2av_dmd
+    # 训练迭代次数（每 iter = 1 次 student 更新 + fake_update_ratio 次 fake 更新）
+    max_train_iters: 1000
+    # 梯度累积步数
+    gradient_accumulation_iters: 1
+    # 激活 checkpoint，显著省显存，正式训练建议 true
+    gradient_checkpointing: true
+    # 梯度裁剪阈值
+    max_grad_norm: 1.0
+    lr_scheduler: constant
+    lr_warmup_iters: 0
+    # 每隔多少 iter 保存 checkpoint
+    save_every_iters: 100
+    # 最多保留几个 checkpoint（超出则删最旧的）
+    save_total_limit: 5
+    minimax_h3:
+        # 视频分支 flow shift（与 H3 官方推理 schedule 一致）
+        video_flow_shift: 6.0
+        # 音频分支 flow shift
+        audio_flow_shift: 3.0
+        # 视频 / 音频 DMD loss 权重
+        video_loss_weight: 1.0
+        audio_loss_weight: 1.0
+        # 官方默认 fp32；比 bf16 更占激活显存。推理里的 cpu_offload 不作用于本训练流程。
+        latent_dtype: fp32
+    dmd:
+        # Student rollout 步数（4 表示 4 次去噪评估；内部会再加 terminal sigma）
+        num_inference_steps: 4
+        # 每个 iter 内 fake 模型更新次数（student 更新 1 次后 fake 更新 N 次）
+        fake_update_ratio: 5
+        # 蒸馏分辨率（须被 32 整除）；768×1344 ≈ 720P 档横屏
+        height: 768
+        width: 1344
+        # 帧数须满足 17*n+5；243 帧 @ 24fps ≈ 10.1 秒
+        num_frames: 243
+        # DMD renoise 随机 sigma 范围 [min, max]
+        renoise_sigma_min: 0.02
+        renoise_sigma_max: 0.98
+        # 是否 warp 去噪步到 scheduler 时间表
+        warp_denoising_step: false
+        # 以下为可选 trick，默认不配即关闭（日志里 div_loss/real_dmd/fake_real 为 0）：
+        # div_loss:          # diversity trick，提升多样性
+        #     enabled: false
+        # fake_real:         # real-data fake trick，需真实视频 latent
+        #     enabled: false
+    student:
+        # student = 要蒸馏出的 4-step LoRA（推理时加载的权重）
+        train_type: lora
+        lora:
+            rank: 128
+            alpha: 128
+            target_modules:
+                - to_q
+                - to_k
+                - to_v
+                - to_out.0
+                - ff.net.0.proj
+                - ff.net.2
+        optimizer:
+            learning_rate: 0.0001
+            adam_beta1: 0.9
+            adam_beta2: 0.999
+            weight_decay: 0.01
+            adam_epsilon: 0.00000001
+    fake:
+        # fake 模型：辅助 DMD 梯度，与 student 结构相同但独立 LoRA
+        train_type: lora
+        lora:
+            rank: 128
+            alpha: 128
+            target_modules:
+                - to_q
+                - to_k
+                - to_v
+                - to_out.0
+                - ff.net.0.proj
+                - ff.net.2
+        optimizer:
+            # fake 学习率通常低于 student
+            learning_rate: 0.00002
+            adam_beta1: 0.9
+            adam_beta2: 0.999
+            weight_decay: 0.01
+            adam_epsilon: 0.00000001
+    teacher:
+        # teacher 冻结，仅前向；T2AV 文本条件通常 guidance_scale=1
+        guidance_scale: 1.0
+        cfg_norm: none
+    output_dir: ./outputs/dmd
+
+inference:
+    # 训练过程中不做在线推理；抽片请用 scripts/infer_dmd_4step.sh
+    method: none
+    infer_every_iters: null
+
+logging:
+    rank_zero_only: true
+    # 每个 iter 打印 loss（正式训练画布慢，便于观察进度）
+    train_log_every_iters: 1
+
+resume:
+    # 自动从 output_dir 最新 checkpoint 恢复
+    auto_resume: true
