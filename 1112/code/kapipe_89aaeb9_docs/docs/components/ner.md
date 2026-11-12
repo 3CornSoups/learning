@@ -1,0 +1,203 @@
+# Named Entity Recognition (`kapipe.ner`)
+
+**Named Entity Recognition (NER)** extracts entity mentions from a document and assigns an entity type to each mention.
+
+## Input
+
+A document is represented as a dictionary with the following fields.
+
+| Field | Type | Description |
+|---|---|---|
+| `doc_key` | `str` | Unique document identifier |
+| `sentences` | `list[str]` | Tokenized sentences |
+
+```json
+{
+    "doc_key": "8800187",
+    "sentences": [
+        "Effect of calcium chloride and 4 - aminopyridine therapy on desipramine toxicity in rats .",
+        ...
+    ]
+}
+```
+
+## Output
+
+The output document preserves the input fields and adds `mentions`.
+
+| Field | Type | Description |
+|---|---|---|
+| `mentions` | `list[dict]` | Extracted entity mentions |
+
+Each mention contains the following fields.
+
+| Field | Type | Description |
+|---|---|---|
+| `span` | `tuple[int, int]` | Token-based mention span |
+| `name` | `str` | Mention string |
+| `entity_type` | `str` | Entity type |
+
+```json
+{
+    "doc_key": "8800187",
+    "sentences": [
+        "Effect of calcium chloride and 4 - aminopyridine therapy on desipramine toxicity in rats .",
+        ...
+    ],
+    "mentions": [
+        {
+            "span": [2, 3],
+            "name": "calcium chloride",
+            "entity_type": "Chemical"
+        },
+        ...
+    ]
+}
+```
+
+## Supported Methods
+
+| Method | Description |
+|---|---|
+| [Biaffine-NER (Yu et al., 2020)](https://aclanthology.org/2020.acl-main.577/) | Span-based neural NER extractor based on Biaffine scoring |
+| LLM-based NER | Prompt-based NER extractor using a proprietary or open-source LLM |
+
+## Public Snapshots
+
+The following public snapshots can be loaded with `from_identifier(...)`.
+
+| Method | Identifier | Dataset | Entity Types | Configuration |
+|---|---|---|---|---|
+| Biaffine-NER | `biaffine_ner_linked_docred` | Linked-DocRED | `PER`, `ORG`, `LOC`, `TIME`, `NUM`, `MISC` | `bert-base-uncased`; nested entities enabled |
+| Biaffine-NER | `biaffine_ner_cdr` | CDR | `Chemical`, `Disease` | `allenai/scibert_scivocab_uncased`; nested entities enabled |
+| LLM-based NER | `llm_ner_linked_docred` | Linked-DocRED | `PER`, `ORG`, `LOC`, `TIME`, `NUM`, `MISC` | Few-shot prompt snapshot; runtime LLM is user-provided |
+| LLM-based NER | `llm_ner_cdr` | CDR | `Chemical`, `Disease` | Few-shot prompt snapshot; runtime LLM is user-provided |
+
+These snapshots are predefined resources for existing benchmark settings. You can also define your own entity type schema and train or configure an extractor for it.
+
+## Usage
+
+### Predefined Biaffine NER:
+
+```python
+from kapipe.ner import BiaffineNER
+
+# Load the Biaffine NER component predefined for the Linked-DocRED schema
+extractor = BiaffineNER.from_identifier(identifier="biaffine_ner_linked_docred")
+
+# Extract entity mentions from a document
+result_document = extractor.extract(document)
+```
+
+### Predefined LLM-based NER:
+
+```python
+from kapipe.ner import LLMNER
+
+# Instantiate your LLM wrapper
+# OpenAI LLM
+from kapipe.llms import OpenAILLM
+model = OpenAILLM(
+    model_name="gpt-5.4-nano",
+    max_new_tokens=8192,
+)
+# HuggingFace LLM
+from kapipe.llms import HuggingFaceLLM
+model = HuggingFaceLLM(
+    model_name = "meta-llama/Meta-Llama-3.1-70B-Instruct",
+    max_new_tokens=1024,
+    quantization_bits=4,
+)
+
+# Load the LLM-based NER component predefined for the Linked-DocRED schema
+extractor = LLMNER.from_identifier(
+    model=model,
+    identifier="llm_ner_linked_docred"
+)
+
+# Extract entity mentions from a document
+result_document = extractor.extract(document)
+```
+
+### User-defined LLM-based NER:
+
+```python
+from kapipe.ner import LLMNER
+
+# Instantiate your LLM wrapper
+model = ...
+
+# Define entity types for your task
+vocab_etype = {
+    "Person": 0,
+    "Location": 1,
+}
+
+# Define metadata used in the prompt
+etype_meta_info = {
+    "Person": {
+        "Pretty Name": "Person",
+        "Definition": "A person, including real and fictional people.",
+    },
+    "Location": {
+        "Pretty Name": "Location",
+        "Definition": "A physical or geopolitical location.",
+    },
+}
+
+# Instantiate the LLM-based NER component with the user-defined entity type schema
+extractor = LLMNER(
+    model=model,
+    prompt_template_name_or_path="ner_15_zeroshot",
+    vocab_etype=vocab_etype,
+    etype_meta_info=etype_meta_info,
+)
+
+# Extract entity mentions from a document
+result_document = extractor.extract(document=document)
+```
+
+## OpenAI Batch API
+
+`LLMNER` supports the OpenAI Batch API when its model is an `OpenAILLM` instance.
+
+```python
+# Submit all document prompts to one or more OpenAI batches
+batch_ids: list[str] = extractor.submit_batch(documents=documents)
+
+# Fetch and process the results after all OpenAI batches are complete
+result_documents = extractor.fetch_and_process_batch(
+    documents=documents,
+    batch_ids=batch_ids,
+)
+```
+
+`submit_batch()` automatically splits requests into batches containing at most 50,000 requests and 200 MB of JSONL input. It returns the batch IDs in submission order, and `fetch_and_process_batch()` merges their responses in the original document order.
+
+Pass the same `documents` in the same order to both methods. Keep the model settings and prompt template unchanged between submission and fetching. `fetch_and_process_batch()` raises a `RuntimeError` if any OpenAI batch is incomplete or contains failed requests.
+
+## Training with a Custom Entity Type Schema
+
+If you want to use your own entity type schema with `BiaffineNER`, train the BiaffineNER model for that schema first.
+
+See [experiments/ner/run_ner_train_eval.py](../../experiments/ner/run_ner_train_eval.py) for runnable training and evaluation examples.
+
+## Custom Prompt Templates
+
+`prompt_template_name_or_path` accepts either the name of a built-in prompt template ([`kapipe/ner/prompt_templates/*.txt`](../../kapipe/ner/prompt_templates)) or a path to a user-defined prompt template.
+
+A custom prompt template for `LLMNER` supports the following placeholders.
+
+| Placeholder | Required | Description |
+|---|---|---|
+| `{entity_types_prompt}` | Yes | Entity types and their descriptions, generated from `vocab_etype` and `etype_meta_info` |
+| `{demonstrations_prompt}` | No | Formatted demonstration documents and their gold entity mentions |
+| `{test_case_prompt}` | Yes | Current document from which entity mentions are extracted |
+
+`{demonstrations_prompt}` is used by few-shot templates. It can be omitted from zero-shot templates.
+
+The component validates that `{entity_types_prompt}` and `{test_case_prompt}` are present.
+
+## Example
+
+See [experiments/ner](../../experiments/ner) for runnable examples.

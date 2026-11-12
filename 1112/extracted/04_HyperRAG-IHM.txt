@@ -1,0 +1,1212 @@
+===== PDF PAGE 1 =====
+Proceedings of the 2026 Conference on Empirical Methods in Natural Language Processing, pages 20682–20693
+October 24-29, 2026 ©2026 Association for Computational Linguistics
+HyperRAG-IHM: Incremental Hyperedge Maintenance for
+Hypergraph RAG under Corpus Expansion
+Haoyu Chen1 Jihua Zhu1,2* Tingkai Jia4 Shengwei Zhao2,3 Lin Chen1 Xiaoxuan Mu1*
+1School of Software Engineering, Xi’an Jiaotong University
+2State Key Laboratory of Human-Machine Hybrid Augmented Intelligence
+3Institute of Artiﬁcial Intelligence and Robotics, Xi’an Jiaotong University
+4East China Normal University
+{haoyuchen01,zhaoshengwei,xiaoxuanmu}@stu.xjtu.edu.cn, zhujh@xjtu.edu.cn
+51275902086@stu.ecnu.edu.cn, chenlin21@hnu.edu.cn
+Abstract
+Hypergraph-based methods extend structured
+retrieval-augmented generation (RAG) by or-
+ganizing external knowledge as multi-entity
+relational structures, helping large language
+models (LLMs) generate better-grounded an-
+swers. However, existing structured RAG
+systems typically assume static corpus con-
+struction, requiring the retrieval structure to
+be rebuilt over the expanded corpus when
+new documents arrive. To address this lim-
+itation, we introduce HyperRAG-IHM, a
+hypergraph-based RAG framework that per-
+forms incremental hyperedge maintenance to
+incorporate newly arriving knowledge with-
+out reconstructing the historical retrieval struc-
+ture. HyperRAG-IHM links relational evi-
+dence extracted from new documents to ex-
+isting hypergraph knowledge, avoiding recon-
+struction of the entire retrieval structure. It
+uses LSH to localize candidate historical hy-
+peredges, then applies multi-dimensional com-
+parison and a three-action decision policy to in-
+tegrate new relational evidence. Experiments
+show that HyperRAG-IHM achieves answer
+quality comparable to or better than full recon-
+struction under 5D scoring and 8D pairwise
+evaluation, and remains robust across ablation,
+structural behavior, cross-dataset, and cross-
+answer-model analyses.
+1 Introduction
+Retrieval-augmented generation (RAG) serves as a
+core paradigm for knowledge-intensive NLP tasks
+by enabling large language models (LLMs) to
+generate responses grounded in external knowl-
+edge rather than relying solely on parametric mem-
+ory ( Lewis et al. , 2020; Guu et al. , 2020; Izac-
+ard and Grave , 2021; Borgeaud et al. , 2022; Gao
+et al. , 2023). Such external grounding is es-
+pecially important for reducing hallucination in
+knowledge-intensive generation ( Ji et al. , 2023).
+*Corresponding authors.
+Early RAG systems relied on dense passage re-
+trieval ( Karpukhin et al. , 2020). Recent work
+has moved toward structured retrieval methods, in-
+cluding graph-based, hierarchical, and memory-
+inspired approaches ( Pan et al. , 2024; Edge et al. ,
+2024; Guo et al. , 2025; Sarthi et al. , 2024; Gutiér-
+rez et al. , 2024; Peng et al. , 2025), which explic-
+itly capture relational knowledge beyond ﬂat text
+chunks. Hypergraph-based RAG further extends
+this direction by representing multi-entity associa-
+tions as hyperedges ( Feng et al., 2026, 2019).
+In real-world deployments, domain knowledge
+does not remain ﬁxed, and retrieval systems often
+need to operate over collections where new infor-
+mation arrives over time ( Hou et al. , 2025). Fresh
+clinical case reports, newly published biomedical
+literature, revised guidelines, and other domain-
+speciﬁc documents continuously change the evi-
+dence available to the system. However, these
+structured RAG systems are still largely built
+around static corpus construction ( Zhang et al. ,
+2025b). How to update the retrieval structure
+while preserving its relational organization re-
+mains underexplored when new documents arrive.
+A retrieval system that cannot absorb these up-
+dates gradually loses coverage, while incorporat-
+ing new evidence without explicit maintenance
+can introduce duplicate or conﬂicting relational
+evidence into the retrieval structure. We refer to
+this requirement as corpus expansion: an existing
+knowledge base must absorb newly arrived doc-
+uments over time while keeping its structured re-
+trieval representation reliable.
+For structured RAG systems, corpus expansion
+creates a tension between update cost and repre-
+sentation reliability. A recent preprint on tempo-
+ral RAG notes that static-corpus assumptions leave
+update costs and retrieval stability insufﬁciently
+examined ( Han et al. , 2025). A recent preprint,
+EraRAG, builds a uniﬁed retrieval index over the
+expanded corpus, but its full-reconstruction setting
+20682
+
+===== PDF PAGE 2 =====
+repeats extraction and construction over historical
+documents, causing update cost to grow with accu-
+mulated corpus size ( Zhang et al. , 2025b). Avoid-
+ing full reconstruction still requires deciding how
+newly extracted relational evidence should con-
+nect to the existing retrieval structure. Without
+explicit maintenance, these new-old relationships
+remain implicit, making it difﬁcult to control rela-
+tional redundancy and preserve coherent retrieved
+context as updates accumulate. The central chal-
+lenge is therefore:
+Can we build a RAG system whose
+knowledge structure can be incremen-
+tally updated as new knowledge arrives,
+while retaining strong organization and
+retrieval quality?
+We develop HyperRAG-IHM, an incre-
+mental hyperedge maintenance framework for
+hypergraph-based RAG. HyperRAG-IHM treats
+relational evidence extracted from newly arrived
+documents as maintenance targets and links it
+to existing hypergraph knowledge. It ﬁrst uses
+an auxiliary LSH index to localize candidate
+historical hyperedges, and then compares new
+and existing relation records with entity, seman-
+tic, keyword, source, support, and speciﬁcity
+signals. The resulting maintenance decisions
+update the hyperedge layer through aggregation,
+replacement, or separate retention, allowing the
+retrieval structure to absorb new knowledge while
+controlling relational redundancy. We instantiate
+HyperRAG-IHM on HyperRAG, whose hyper-
+edges provide concrete relation-level records
+containing entity sets, descriptions, keywords,
+source identiﬁers, and weights ( Feng et al. , 2026,
+2019).
+Our contributions are:
+• We propose HyperRAG-IHM, an incremen-
+tal maintenance framework that combines
+LSH-based candidate localization, multi-
+dimensional hyperedge comparison, and a
+three-action maintenance policy.
+• We identify corpus expansion in hypergraph-
+based RAG as an incremental hyperedge
+maintenance problem, with the goal of incor-
+porating newly arrived knowledge without re-
+constructing the existing retrieval structure.
+• Experiments covering quality, efﬁciency,
+structural behavior, ablation, cross-dataset
+generalization, and cross-model robustness
+show that HyperRAG-IHM substantially re-
+duces update cost while preserving competi-
+tive full-reconstruction answer quality.
+2 Related Work
+2.1 Structured Retrieval-Augmented
+Generation
+Early RAG paired dense passage retrieval with
+generation ( Karpukhin et al. , 2020; Lewis et al. ,
+2020; Guu et al. , 2020; Izacard and Grave ,
+2021). Benchmarks such as KILT further consoli-
+dated knowledge-intensive language tasks around
+shared evidence sources ( Petroni et al. , 2021). Re-
+cent systems increasingly use corpus structure to
+support relational and multi-hop reasoning ( Peng
+et al. , 2025). GraphRAG builds entity relation
+graphs and community reports ( Edge et al. , 2024;
+Traag et al., 2019), LightRAG combines graph and
+vector retrieval ( Guo et al. , 2025), RAPTOR con-
+structs hierarchical summary trees ( Sarthi et al. ,
+2024), and HippoRAG coordinates LLMs, knowl-
+edge graphs, and graph search ( Gutiérrez et al. ,
+2024). HyperRAG further uses hypergraphs to
+model multiway relations and thematic associa-
+tions ( Feng et al. , 2026, 2019). These methods
+motivate structured retrieval, but they mainly orga-
+nize retrieval over a ﬁxed corpus rather than main-
+taining hypergraph structure during corpus expan-
+sion.
+2.2 Dynamic and Continual RAG
+Self-RAG and a CRAG preprint study inference-
+time retrieval control, critique, and correction
+during generation ( Asai et al. , 2024; Y an et al. ,
+2024). Beyond retrieval-speciﬁc methods, re-
+cent work studies reasoning efﬁciency and relia-
+bility through selective chain-of-thought compres-
+sion and adaptive reﬁnement (Zhang et al., 2026c).
+Recent preprints further explore adaptive reﬁne-
+ment and late-stage error mitigation ( Zhang et al. ,
+2026a, 2025a), as well as explicit or coarse-to-
+ﬁne reasoning over multimodal and tabular in-
+puts ( Zhang et al. , 2026b; Huang et al. , 2026).
+These approaches optimize inference-time com-
+putation or intermediate reasoning representations
+without maintaining the underlying retrieval struc-
+ture; when the corpus itself expands, index-level
+maintenance remains a separate problem. Con-
+tinual neural information retrieval studies retrieval
+systems that adapt over time, including deﬁnitions,
+20683
+
+===== PDF PAGE 3 =====
+datasets, and evaluation protocols for lifelong set-
+tings ( Hou et al. , 2025). A recent temporal-RAG
+preprint also highlights update-cost and retrieval-
+stability concerns under evolving knowledge (Han
+et al. , 2025). The EraRAG preprint studies cor-
+pus expansion at the index-construction level and
+uses hyperplane-based LSH to localize insertions
+in graph-based retrieval indexes ( Zhang et al. ,
+2025b). However, none of these methods ad-
+dresses maintenance of structured hyperedge rep-
+resentations under corpus expansion, where new
+evidence must be reconciled with existing hyper-
+edges.
+2.3 Knowledge Maintenance, Entity
+Resolution, and LSH
+Knowledge graph research studies dynamic up-
+dates through entity alignment and temporal link
+prediction ( Sun et al. , 2020; Y an et al., 2021; Jin
+et al., 2020), but these methods usually operate on
+binary graph edges rather than hyperedges among
+multiple entities. Entity resolution and record
+linkage use candidate blocking followed by multi-
+feature comparison ( Christophides et al. , 2020;
+Papadakis et al. , 2020), providing a useful anal-
+ogy for restricting and comparing candidate hyper-
+edges. LSH supports efﬁcient approximate search,
+near duplicate detection, and streaming data pro-
+cessing ( Indyk and Motwani , 1998; Manku et al. ,
+2007; Leskovec et al. , 2020); SimHash and Min-
+Hash provide widely used similarity estimators
+(Charikar, 2002; Broder, 1997). In this paper,
+these ideas serve as background for candidate lo-
+calization; the concrete maintenance mechanism
+is deﬁned in Section 4.1.
+3 Preliminaries and Problem
+Formulation
+3.1 Hypergraph Representation and
+Hyperedge Types
+HyperRAG (Feng et al., 2026) organizes extracted
+knowledge as a hypergraph H = ( V, E), where V
+denotes entity vertices and E denotes hyperedges
+over these vertices. In the hypergraph-based repre-
+sentation used in this work, the LLM extraction
+process produces entities, low-order hyperedges,
+and high-order hyperedges in the same extraction
+pass. Each hyperedge is deﬁned by an entity set
+and is associated with a textual description, key-
+words, source identiﬁers, and an edge weight, so
+that it can encode a relation or association among
+a group of entities.
+Low-order hyperedges capture direct entity-
+level relational evidence: when a small number of
+entities are explicitly related in a text chunk, the
+system extracts a low-order hyperedge recording
+the relational description, keywords, and strength.
+High-order hyperedges instead organize broader
+thematic associations among multiple related en-
+tities identiﬁed during the same extraction pass.
+During incremental updates, high-order hyper-
+edges follow the inherited key-based aggregation
+path: records with the same normalized entity set
+are consolidated, while records with different en-
+tity sets remain separate. HyperRAG-IHM applies
+its LSH-based three-action maintenance speciﬁ-
+cally to low-order hyperedges, where newly ex-
+tracted relational evidence is most likely to overlap
+with or reﬁne existing records.
+3.2 Incremental Hyperedge Maintenance
+Problem
+Let ∆Dt denote the batch of new texts arriving at
+update step t. Before this update, the system main-
+tains an existing HyperRAG index built from the
+previously observed corpus. Its graph component
+is denoted as Ht−1 = ( Vt−1, Et−1), where Vt−1
+contains extracted entity vertices and Et−1 con-
+tains the stored hyperedges. The system also main-
+tains an auxiliary LSH maintenance state St−1 for
+active low-order hyperedges, including their nor-
+malized records and indexing metadata used for
+local candidate retrieval.
+Given ∆Dt, the update objective is to construct
+an expanded hypergraph Ht and a synchronized
+auxiliary state St without rebuilding the historical
+hypergraph from scratch, such that:
+1. Ht incorporates the knowledge extracted
+from the expanded corpus;
+2. redundant, overlapping, or superseded low-
+order hyperedges are maintained through ag-
+gregation, replacement, or separate retention
+rather than being accumulated without con-
+trol;
+3. extraction and maintenance are restricted to
+∆Dt and the hyperedges extracted from it,
+without re-running extraction over the histor-
+ical corpus.
+Each extracted low-order hyperedge is normalized
+as
+e = (Se, de, Ke, Ce, we), (1)
+20684
+
+===== PDF PAGE 4 =====
+where Se is the entity set, de is the textual descrip-
+tion, Ke is the keyword set, Ce is the set of source
+identiﬁers, and we is the edge weight. The canon-
+ical edge key is deﬁned as the ordered tuple ob-
+tained by sorting the entity set:
+κ(e) = sort( Se). (2)
+This key ensures that all records over the same en-
+tity set map to the same maintenance unit regard-
+less of their original extraction order or source doc-
+ument.
+Let ∆E low
+t denote the new low-order hyper-
+edges extracted from ∆Dt. For each enew ∈
+∆E low
+t , the goal is to select an action a ∈
+{MERGE , REPLACE _OLD , KEEP _BOTH } with re-
+spect to existing hyperedges in the current index.
+4 HyperRAG-IHM
+For each newly extracted low-order hyperedge,
+HyperRAG-IHM localizes candidate historical
+edges, compares them with interpretable relational
+signals, and applies one of three maintenance ac-
+tions. The resulting update is committed jointly to
+the main hypergraph and the auxiliary LSH state,
+so that subsequent updates operate on a synchro-
+nized structure. Figure 1 illustrates the overall
+workﬂow.
+4.1 LSH-Based Candidate Retrieval
+Motivated by EraRAG’s use of LSH-based local-
+ization in corpus expansion ( Zhang et al. , 2025b),
+HyperRAG-IHM maintains an auxiliary LSH in-
+dex that maps semantically similar edge repre-
+sentations to the same or nearby buckets ( Indyk
+and Motwani, 1998), avoiding exhaustive compar-
+ison between each new edge and all historical
+edges. For each new low-order hyperedge, the
+index returns a bounded candidate set including
+matches under the canonical entity-set key κ(e),
+nearby LSH buckets, and entity-overlap candi-
+dates; merge and replacement decisions are made
+by the comparison and decision modules below.
+The index reuses a ﬁxed random hyperplane
+matrix P ∈ Rk×d across incremental stages and
+maintains bucket labels for active low-order hyper-
+edges. This sidecar state provides stable locality
+preserving access to historical edges while leaving
+the main hypergraph as the authoritative retrieval
+structure.
+Signature Computation. Following random-
+hyperplane similarity estimation ( Charikar, 2002),
+each low-order hyperedge is projected into a bi-
+nary signature space. For each hyperedge e, let xe
+denote its textual representation:
+xe = [Ke [SEP] sort(Se) [SEP] de]. (3)
+The representation xe is encoded by the embed-
+ding model into a vector ve ∈ Rd, where d is the
+embedding dimension, and normalized as ˆve =
+ve/∥ve∥. The k-bit signature is
+b(e) =
+[
+1[p⊤
+1 ˆve > 0], . . . ,1[p⊤
+k ˆve > 0]
+]
+(4)
+where pi is the i-th row of P and 1[·] is the indi-
+cator function. The binary vector is converted to
+a bucket label ℓe ∈ {0, . . . ,2k−1} used for index-
+ing.
+Candidate Retrieval. For a new edge enew, can-
+didates are retrieved from four sources in priority
+order: matches under κ(enew), same-bucket edges,
+Hamming-neighbor buckets within a ﬁxed radius
+(Indyk and Motwani, 1998), and an entity-Jaccard
+fallback when bucket retrieval returns too few can-
+didates ( Broder, 1997). Duplicates are removed
+and the ﬁnal candidate set is capped by a ﬁxed
+maximum size. The retrieved candidates are then
+ranked by the preﬁlter score in Section 4.2.
+4.2 Multi-Dimensional Edge Comparison
+After candidate retrieval, each candidate pair
+(enew, eold) is represented by a set of inter-
+pretable comparison features. This design fol-
+lows the broad entity-resolution pattern of block-
+ing/ﬁltering followed by multi-feature comparison
+(Christophides et al., 2020; Papadakis et al., 2020).
+Conceptually, these deterministic signals cover
+three aspects of a maintenance decision: identity
+and overlap, semantic compatibility, and evidence
+strength.
+Entity, keyword, and source overlaps are com-
+puted with set-similarity measures such as Jaccard
+similarity. Containment and overlap-coefﬁcient
+signals are included because two related hyper-
+edges may not have identical entity sets but can
+still describe nested or partially overlapping rela-
+tions (Broder, 1997). Semantic similarity uses the
+same textual edge representation as LSH signa-
+tures, allowing relation meaning to be compared
+beyond exact keyword or entity overlap. The re-
+sulting signals include entity overlap, overlap co-
+efﬁcient, keyword overlap, source overlap, source
+gain, semantic similarity, and containment. Sup-
+port qsup(e) is derived from source count and edge
+20685
+
+===== PDF PAGE 5 =====
+Maintained States: ?t and St
+Main Hypergraph ?t
+ Auxiliary LSH State St
+ΔDt
+ lower order Δ? t
+ Candidate Localization
+ Edge Comparison Three-Action Maintenance
+commit
+Figure 1: Overview of the HyperRAG-IHM framework.
+weight, while speciﬁcity qspec(e) reﬂects informa-
+tive descriptions and keywords. These features
+are combined into a preﬁlter score spre for candi-
+date ranking, support and speciﬁcity deltas ∆sup
+and ∆spec, and composite merge and replacement
+scores smerge and sreplace used by the decision
+mechanism below. Complete threshold values are
+listed in Appendix A.
+4.3 Three-Action Decision Mechanism
+Given the top-ranked candidate e∗
+old, the system
+applies a deterministic decision tree based on the
+comparison features deﬁned in Section 4.2. Here,
+Snew and Sold denote the entity sets of enew and
+e∗
+old, respectively. The three actions cover compat-
+ible, superseding, and distinct relations between
+new and existing hyperedges. The tree uses entity
+and semantic similarity, merge and replacement
+scores, and support/speciﬁcity deltas. If no can-
+didate exists, the new edge is kept. When the top
+candidate shares the same sorted entity set, the sys-
+tem ﬁrst checks replacement; if replacement is not
+triggered, the payloads are merged as repeated ev-
+idence for the same relation. When the top can-
+didate has a contained or highly compatible entity
+set, the system can also merge the related evidence
+according to semantic and merge scores. If merge
+conditions are not met, the system checks replace-
+ment and then defaults to keeping both when simi-
+larity or evidence strength is insufﬁcient.
+Merge (aggregate compatible evidence).
+Merge aggregates compatible evidence into an
+existing maintenance unit. It applies to repeated
+evidence over the same sorted entity set and to
+contained or highly compatible candidates such
+as Snew ⊂ Sold. The decision uses semantic and
+merge scores together with supporting cues such
+as keyword overlap, source overlap, or no speci-
+ﬁcity increase. It deduplicates and concatenates
+descriptions, unions keyword and source sets, and
+sums weights.
+Replace_old (new evidence supersedes old).
+Replacement is triggered when strong entity and
+semantic agreement is paired with a support or
+speciﬁcity advantage, or when reverse contain-
+ment Sold ⊂ Snew indicates a more complete and
+better supported relation. If the canonical keys dif-
+fer, the old edge is marked inactive and the new
+edge is inserted; if they match, the maintenance
+unit is updated with the new description while car-
+rying over compatible keyword/source evidence.
+Keep_both (default). This default is applied
+when entity or semantic similarity is low, or when
+no candidate satisﬁes the merge or replacement
+conditions. It preserves potentially novel rela-
+tions when aggregation or supersession is not suf-
+ﬁciently supported. Appendices A and B provide
+threshold values and concrete decision-log exam-
+ples.
+20686
+
+===== PDF PAGE 6 =====
+4.4 Consistency: Staged Update and Commit
+All updates follow a staged commit protocol: de-
+cisions ﬁrst produce upsert and removal lists, U
+and R, from the current auxiliary state; the main
+hypergraph is then updated; and the auxiliary LSH
+state is committed only after successful write-back.
+If the main-graph write fails, the auxiliary state
+remains unchanged and the stage can be retried.
+This protocol prevents the auxiliary index from ad-
+vancing beyond the persisted hypergraph state. Af-
+ter candidate retrieval, the pairwise scoring and de-
+cision cost per batch is O(|∆E low
+t | · M ), where
+M is the candidate cap. This does not remove
+extraction cost for newly arrived documents, but
+avoids detailed comparison against all historical
+low-order edges and avoids re-extracting the his-
+torical corpus.
+5 Experiments and Analysis
+Our experiments evaluate HyperRAG-IHM from
+four complementary perspectives. First, we test
+whether incremental maintenance preserves an-
+swer quality against full reconstruction. Second,
+we measure whether this quality is achieved with
+lower update cost. Third, we examine whether the
+proposed actions maintain the relationship layer
+rather than merely appending new edges. Finally,
+we evaluate whether the effect generalizes across
+datasets, answer models, and ablation settings.
+5.1 Experimental Setup
+We summarize the shared experimental context in
+this subsection, while task-speciﬁc question splits
+and reporting details are introduced in the corre-
+sponding experiment subsections.
+Datasets. We evaluate the proposed method on
+four datasets with different scale and domain char-
+acteristics. Pathology contains 5,297 medical
+pathology documents and 5,289 indexed chunks,
+and serves as the primary dataset for the detailed
+quality, robustness, maintenance, ablation, and
+efﬁciency analyses. Neurology contains 12,370
+medical neurology documents and 12,370 indexed
+chunks, providing a larger medical-domain gener-
+alization setting. MixCorp contains 687 mixed-
+domain input documents and 817 indexed chunks
+derived from heterogeneous QA sources, provid-
+ing an additional cross-domain setting. MuSiQue
+(Trivedi et al., 2022) is evaluated using a difﬁculty-
+stratiﬁed 40% subset containing 11,960 Wikipedia
+passages and 150 multi-hop questions, providing a
+larger open-domain generalization setting.
+Compared systems. The main method is
+HyperRAG-IHM (HyperRAG with Incremental
+Hyperedge Maintenance ), which updates an
+existing HyperRAG index by processing newly
+arrived texts and their extracted hyperedges. The
+primary reference is HyperRAG full recon-
+struction, which rebuilds the HyperRAG index
+from the expanded corpus and is used to assess
+whether incremental maintenance preserves
+full-reconstruction quality. For broader context on
+the primary dataset, we also include GraphRAG
+(Edge et al. , 2024), LightRAG (Guo et al. , 2025),
+and an embedding-only chunk-retrieval RAG
+baseline ( Lewis et al. , 2020; Karpukhin et al. ,
+2020). Their results serve as reference points on
+the primary dataset.
+Evaluation protocol. We adopt the evaluation
+protocol used by HyperRAG ( Feng et al. , 2026).
+Speciﬁcally, its 5D scoring-based evaluation ex-
+tends the GraphRAG evaluation paradigm based
+on LLM judges ( Edge et al. , 2024; Zheng
+et al. , 2023; Liu et al. , 2023) to measure ab-
+solute answer quality across Comprehensiveness,
+Diversity, Empowerment, Logical, and Read-
+ability. Its selection-based evaluation com-
+pares two answers across eight dimensions—
+Comprehensiveness, Empowerment, Accuracy,
+Relevance, Coherence, Clarity, Logical, and Flex-
+ibility—and records which answer is judged bet-
+ter in each dimension. In this work, 5D scor-
+ing is used for broad absolute-quality comparisons,
+whereas 8D pairwise selection is used for ﬁne-
+grained relative comparison: by comparing two
+answers under the same judge prompt, it better
+exposes relative answer-quality differences and re-
+duces perturbations from score-scale calibration
+and answer style. For 8D selection, we report
+clear-preference rates.
+Model settings. All HyperRAG index construc-
+tion and hyperedge extraction use Doubao-1.5-
+Lite as the construction LLM. Doubao-1.5-Lite
+serves as the primary judge for the reported eval-
+uations. To assess judge sensitivity, we addi-
+tionally evaluate the Pathology comparison with
+DeepSeek-V3.2, GLM-5, and Kimi-K2.5. For
+answer generation, the main experiments use
+Doubao-1.5-Lite, and cross-answer-model anal-
+yses additionally use MiniMax-M2.7, Kimi-2.5,
+20687
+
+===== PDF PAGE 7 =====
+Trial 1 Trial 2 Trial 3
+35
+40
+45
+50
+55
+60
+65
+Score (%) 44.3
+39.2
+43.444.4
+40.4
+43.5
+47.5
+43.1
+48.3
+52.2
+54.1
+55.7
+60.5
+58.1
+54.8
+RAG GraphRAG LightRAG HyperRAG HyperRAG-IHM
+(a) Single-hop setting.
+Trial 1 Trial 2 Trial 3
+25
+35
+45
+55
+65
+75
+Score (%)
+30.9 32.0
+45.3
+55.6
+49.0
+54.5
+52.4 50.9
+58.1
+63.7 63.4
+72.0
+67.0
+63.0
+70.3
+RAG GraphRAG LightRAG HyperRAG HyperRAG-IHM
+(b) Multi-hop setting.
+Figure 2: 5D average scores on Pathology.
+0 25 50 75
+HyperRAG-IHM clear-preference rate (%)
+Flexibility
+Clarity
+Coherence
+Logical
+Relevance
+Empowerment
+Accuracy
+Comprehensiveness
+Average
+50%
+39.8
+42.7
+59.1
+59.2
+63.1
+64.8
+64.9
+72.4
+58.25
+Figure 3: 8D pairwise preference between HyperRAG-
+IHM and HyperRAG.
+and Qwen3.6-Plus.
+5.2 Primary-Dataset Overall Comparison
+Pathology serves as the primary dataset, with
+dense medical entities, specialized terminology,
+and clinically grounded relations that require fac-
+tual grounding and evidence integration. We eval-
+uate single-hop questions for ordinary factual re-
+trieval and multi-hop questions requiring joint evi-
+dence across texts. Across three repeated trials, we
+sample 100 single-hop and 50 multi-hop questions
+per trial; Figures 2a and 2b report the 5D averages,
+with detailed scores in Appendix C.
+HyperRAG-IHM achieves the highest 5D aver-
+age score in both single-hop (57.80) and multi-
+hop (66.77) settings, with gains mainly in Compre-
+hensiveness, Logical, and Readability. We further
+compare it with the HyperRAG full-reconstruction
+reference using the full 8D pairwise preference
+evaluation.
+Figure 3 shows that HyperRAG-IHM is pre-
+ferred in 58.25% of clear-preference compar-
+isons, with the strongest advantages in Com-
+prehensiveness (72.4%), Accuracy (64.9%), and
+Empowerment (64.8%). These results indicate
+that HyperRAG-IHM preserves competitive full-
+reconstruction quality while showing advantages
+in several coverage-oriented dimensions under the
+primary judge.
+5.3 Efﬁciency Analysis
+We evaluate efﬁciency using a single 5% cor-
+pus update on Pathology as an example. Non-
+incremental baselines rebuild their graph or index
+over the expanded corpus, whereas HyperRAG-
+IHM processes newly arrived documents and
+maintains their extracted hyperedges. As shown
+in Table 1, HyperRAG-IHM requires roughly
+20× fewer LLM tokens and 19 × less wall-clock
+time than HyperRAG full reconstruction, indicat-
+ing that incremental maintenance substantially re-
+duces update cost while preserving quality.
+Method Tokens (M) Time (s)
+HyperRAG-IHM 1.63 1,221.06
+LightRAG 32.51 1,554.29
+GraphRAG 47.46 10,334.08
+HyperRAG 32.95 22,947.62
+Table 1: Construction cost for a 5% Pathology corpus
+update. Non-incremental methods rebuild their graph
+or index.
+5.4 Maintenance Behavior and Structure
+Size
+To connect answer quality with structural behav-
+ior, we examine the actions taken during incre-
+mental maintenance and the resulting low-order
+relationship-layer size. Table 2 reports merge and
+replacement counts, together with the ﬁnal main-
+tained relationship entries.
+Dataset Merge Repl. IHM Rel. H-RAG Rel. Red.
+Pathology 423 128 25,353 32,029 20.8%
+Neurology 1,091 360 75,227 90,940 17.3%
+Table 2: Maintenance actions and low-order
+relationship-layer size. Repl.: replacements; IHM
+Rel. and H-RAG Rel.: retained low-order relationship
+entries for HyperRAG-IHM and HyperRAG full
+reconstruction; Red.: reduction of IHM relative to
+HyperRAG.
+On both datasets, merge actions substantially
+20688
+
+===== PDF PAGE 8 =====
+outnumber replacements, and the maintained re-
+lationship layer is 17–21% smaller than the full-
+reconstruction reference. This indicates that incre-
+mental maintenance consolidates redundant rela-
+tional evidence while preserving distinct relation-
+ships through the keep-both fallback.
+5.5 Ablation Study
+To isolate the proposed maintenance mechanism,
+we compare HyperRAG-IHM with two increas-
+ingly stronger incremental baselines. Direct In-
+sert adds new hyperedges without maintenance.
+Key-based Aggregation is a stronger ablation that
+aggregates incoming hyperedges when they share
+normalized entity keys. HyperRAG-IHM fur-
+ther introduces LSH-based candidate retrieval,
+multi-dimensional comparison, and explicit main-
+tenance actions.
+The complete 5D ablation scores are provided
+in Appendix D. HyperRAG-IHM obtains the high-
+est 5D average in both settings, with a larger im-
+provement on multi-hop questions. This suggests
+that active hyperedge maintenance is especially
+useful when answering requires combining rela-
+tional evidence across documents. Table 3 reports
+the corresponding 8D pairwise preference rates
+against the two incremental baselines.
+Baseline Type A vg. Comp. Acc. Rel. Logic.
+Direct Insert Single 57.51 73.49 66.67 59.93 58.51
+Direct Insert Multi 65.84 75.33 73.72 76.30 69.29
+Key Aggreg. Single 56.42 73.15 65.12 59.09 56.32
+Key Aggreg. Multi 65.07 75.33 70.50 74.81 66.90
+Table 3: 8D pairwise ablation results. V alues
+are HyperRAG-IHM preference rates among clear-
+preference cases. Comp., Acc., Rel., and Logic. denote
+Comprehensiveness, Accuracy, Relevance, and Logi-
+cal.
+The same trend appears in pairwise evaluation:
+HyperRAG-IHM is preferred over both Direct In-
+sert and Key-based Aggregation, with stronger
+gains on multi-hop questions. The gap over Direct
+Insert shows the cost of leaving newly extracted re-
+lations unmaintained. The gap over Key-based Ag-
+gregation further shows that exact-key aggregation
+is insufﬁcient; effective maintenance also requires
+candidate localization and semantic comparison
+across related but non-identical hyperedges.
+5.6 Generalization and Robustness
+We further evaluate whether the maintained hyper-
+graph remains effective across datasets, answer-
+generation models, and judge models. Table 4
+reports the cross-dataset results. On Neurology,
+HyperRAG-IHM obtains a 5D average score of
+54.32, slightly above HyperRAG at 53.72, and
+reaches a 52.50% 8D clear-preference rate. On
+MixCorp, HyperRAG has a higher 5D average
+score (54.65 versus 53.39), while HyperRAG-
+IHM still achieves a 51.88% 8D clear-preference
+rate. For MuSiQue, we take 20% of the subset
+as the initial index and apply sixteen consecutive
+5% updates before comparing the maintained in-
+dex with full reconstruction. HyperRAG-IHM ob-
+tains a 5D average of 62.71 versus 61.26 for Hy-
+perRAG and a 51.10% 8D clear-preference rate;
+full dimension-level results are provided in Ap-
+pendix E. Across the sixteen updates, active low-
+order hyperedges remain between 4.6 and 4.9 per
+chunk, with 1.45% variation, while the largest
+LSH bucket stays below 0.4% of indexed relation-
+ships.
+Dataset 5D IHM 5D H-RAG 8D A vg.
+Pathology 60.79 58.15 58.25
+Neurology 54.32 53.72 52.50
+MixCorp 53.39 54.65 51.88
+MuSiQue 62.71 61.26 51.10
+Table 4: Cross-dataset generalization. 8D values are
+HyperRAG-IHM clear-preference rates.
+When only the answer-generation model
+changes, HyperRAG-IHM is preferred over
+HyperRAG with average 8D clear-preference
+rates from 62.72% to 65.72% across Kimi-2.5,
+Qwen3.6-Plus, and MiniMax-M2.7 (Table 5).
+Under these alternative answer models, the 8D
+pairwise advantage is even more pronounced
+than with the main model, suggesting that the
+maintained hypergraph remains useful beyond the
+main answer-model setting despite slightly lower
+absolute 5D scores.
+Answer Model 5D IHM 5D H-RAG 8D A vg.
+Kimi-2.5 73.94 75.46 65.72
+Qwen3.6-Plus 66.34 67.89 62.72
+MiniMax-M2.7 73.24 75.77 64.21
+Table 5: Cross-answer-model robustness on Pathology.
+8D values are HyperRAG-IHM clear-preference rates.
+20689
+
+===== PDF PAGE 9 =====
+To assess sensitivity to the LLM judge, we re-
+evaluate the same 100 single-hop and 50 multi-
+hop Pathology answers with the primary judge
+and three independent judges. Table 6 shows that
+all four judges favor HyperRAG-IHM in 8D pair-
+wise comparison, with clear-preference rates from
+53.13% to 60.72%. The 5D ordering is more
+judge-sensitive: it favors HyperRAG-IHM under
+the primary judge but marginally favors Hyper-
+RAG under the three independent judges.
+Judge 5D IHM 5D H-RAG 8D A vg.
+Doubao-1.5-Lite 63.91 61.61 60.72
+DeepSeek-V3.2 74.30 76.60 58.79
+GLM-5 74.99 76.22 56.35
+Kimi-K2.5 68.86 69.11 53.13
+Table 6: Cross-judge robustness on the same Pathol-
+ogy subset. 8D values are HyperRAG-IHM clear-
+preference rates.
+Taken together, the cross-dataset, cross-answer-
+model, and cross-judge results show competitive
+behavior across the evaluated settings, with a con-
+sistent pairwise advantage for HyperRAG-IHM.
+6 Conclusion
+We have proposed the ﬁrst incremental low-order
+hyperedge maintenance method for hypergraph-
+based RAG, enabling knowledge bases to absorb
+new documents without full-graph reconstruction.
+The core mechanism combines LSH candidate re-
+trieval, multi-dimensional scoring, and a three-
+action decision policy, preserving answer quality
+competitive with full reconstruction under LLM-
+judge evaluation. Cross-dataset, cross-answer-
+model, and cross-judge evaluations support the ro-
+bustness of these ﬁndings, and the efﬁciency analy-
+sis conﬁrms that incremental maintenance substan-
+tially reduces construction cost. Beyond Hyper-
+RAG, the maintenance framework could in prin-
+ciple be adapted to other structured RAG systems
+that maintain entity-level relational records, pro-
+viding a foundation for scalable knowledge main-
+tenance under corpus growth. Future directions in-
+clude learning decision thresholds from data rather
+than hand-tuning them, extending three-action se-
+mantic maintenance to high-order thematic hyper-
+edges, and evaluating on corpora with document
+revisions and temporal conﬂicts.
+Limitations
+The decision thresholds are empirically speciﬁed
+rather than optimized; the results demonstrate ef-
+fectiveness under the present settings but do not
+prove optimality. Although the experiments sim-
+ulate corpus expansion through incremental up-
+dates, they use static datasets; true dynamic cor-
+pora with document revisions, temporal conﬂicts,
+and freshness-sensitive queries remain beyond the
+current evaluation. Cross-judge evaluation re-
+duces dependence on a single automatic evaluator,
+but the current study does not include human an-
+notation.
+Acknowledgments
+This work was supported by the Natural Science
+Basis Research Plan in Shaanxi Province of China
+under Grant 2026JC-QYCX-061.
+References
+Akari Asai, Zeqiu Wu, Yizhong Wang, Avirup Sil,
+and Hannaneh Hajishirzi. 2024. Self-RAG: Learn-
+ing to retrieve, generate, and critique through self-
+reﬂection. In The Twelfth International Conference
+on Learning Representations.
+Sebastian Borgeaud, Arthur Mensch, Jordan Hoff-
+mann, Trevor Cai, Eliza Rutherford, Katie Milli-
+can, George Bm V an Den Driessche, Jean-Baptiste
+Lespiau, Bogdan Damoc, Aidan Clark, Diego
+De Las Casas, Aurelia Guy, Jacob Menick, Roman
+Ring, Tom Hennigan, Saffron Huang, Loren Mag-
+giore, Chris Jones, Albin Cassirer, and 9 others.
+2022. Improving language models by retrieving
+from trillions of tokens . In Proceedings of the 39th
+International Conference on Machine Learning, vol-
+ume 162 of Proceedings of Machine Learning Re-
+search, pages 2206–2240. PMLR.
+Andrei Z. Broder. 1997. On the resemblance and con-
+tainment of documents . In Proceedings of the Com-
+pression and Complexity of Sequences 1997 , SE-
+QUENCES ’97, pages 21–29. IEEE Computer So-
+ciety.
+Moses S. Charikar. 2002. Similarity estimation tech-
+niques from rounding algorithms . In Proceedings of
+the Thirty-F ourth Annual ACM Symposium on The-
+ory of Computing , STOC ’02, pages 380–388, New
+Y ork, NY , USA. Association for Computing Machin-
+ery.
+V assilis Christophides, V asilis Efthymiou, Themis Pal-
+panas, George Papadakis, and Kostas Stefanidis.
+2020. An overview of end-to-end entity resolution
+for big data. ACM Computing Surveys, 53(6):1–42.
+20690
+
+===== PDF PAGE 10 =====
+Darren Edge, Ha Trinh, Newman Cheng, Joshua
+Bradley, Alex Chao, Apurva Mody, Steven Truitt,
+Dasha Metropolitansky, Robert Osazuwa Ness, and
+Jonathan Larson. 2024. From local to global: A
+graph RAG approach to query-focused summariza-
+tion. arXiv preprint arXiv:2404.16130.
+Yifan Feng, Hao Hu, Shihui Ying, Xingliang Hou, Shi-
+quan Liu, Mingyuan Y ang, Junchang Li, Shaoyi
+Du, Nanning Zheng, Han Hu, and Y ue Gao. 2026.
+Hyper-RAG: Combating LLM hallucinations using
+hypergraph-driven retrieval-augmented generation .
+Nature Communications, 17:5778.
+Yifan Feng, Haoxuan Y ou, Zizhao Zhang, Rongrong Ji,
+and Y ue Gao. 2019. Hypergraph neural networks .
+In Proceedings of the AAAI Conference on Artiﬁcial
+Intelligence, volume 33, pages 3558–3565.
+Y unfan Gao, Y un Xiong, Xinyu Gao, Kangxiang Jia,
+Jinliu Pan, Y uxi Bi, Yi Dai, Jiawei Sun, Meng Wang,
+and Haofen Wang. 2023. Retrieval-augmented gen-
+eration for large language models: A survey . arXiv
+preprint arXiv:2312.10997.
+Zirui Guo, Lianghao Xia, Y anhua Y u, Tu Ao, and Chao
+Huang. 2025. LightRAG: Simple and fast retrieval-
+augmented generation . In Findings of the Associ-
+ation for Computational Linguistics: EMNLP 2025 ,
+pages 10746–10761, Suzhou, China. Association for
+Computational Linguistics.
+Bernal Jiménez Gutiérrez, Yiheng Shu, Y u Gu, Michi-
+hiro Y asunaga, and Y u Su. 2024. HippoRAG: Neu-
+robiologically inspired long-term memory for large
+language models . In Advances in Neural Informa-
+tion Processing Systems , volume 37, pages 59532–
+59569.
+Kelvin Guu, Kenton Lee, Zora Tung, Panupong Pa-
+supat, and Ming-Wei Chang. 2020. Retrieval aug-
+mented language model pre-training . In Proceed-
+ings of the 37th International Conference on Ma-
+chine Learning, pages 3929–3938.
+Jiale Han, Austin Cheung, Y ubai Wei, Zheng Y u,
+Xusheng Wang, Bing Zhu, and Yi Y ang. 2025.RAG
+meets temporal graphs: Time-sensitive modeling
+and retrieval for evolving knowledge. arXiv preprint
+arXiv:2510.13590.
+Jingrui Hou, Georgina Cosma, and Axel Finke. 2025.
+Advancing continual lifelong learning in neural in-
+formation retrieval: Deﬁnition, dataset, framework,
+and empirical evaluation . Information Sciences ,
+687:121368.
+Qixian Huang, Hongqiang Lin, Tong Fu, Yingsen
+Wang, Zhenghui Fu, Qirui Wang, Yiding Sun, and
+Dongxu Zhang. 2026. CFMS: A coarse-to-ﬁne mul-
+timodal synthesis framework for enhanced tabular
+reasoning. arXiv preprint arXiv:2604.10973.
+Piotr Indyk and Rajeev Motwani. 1998. Approximate
+nearest neighbors: Towards removing the curse of
+dimensionality. In Proceedings of the Thirtieth
+Annual ACM Symposium on Theory of Computing ,
+STOC ’98, pages 604–613, New Y ork, NY , USA.
+Association for Computing Machinery.
+Gautier Izacard and Edouard Grave. 2021. Leveraging
+passage retrieval with generative models for open
+domain question answering . In Proceedings of the
+16th Conference of the European Chapter of the As-
+sociation for Computational Linguistics: Main V ol-
+ume, pages 874–880, Online. Association for Com-
+putational Linguistics.
+Ziwei Ji, Nayeon Lee, Rita Frieske, Tiezheng Y u, Dan
+Su, Y an Xu, Etsuko Ishii, Y e Jin Bang, Andrea
+Madotto, and Pascale Fung. 2023. Survey of hallu-
+cination in natural language generation . ACM Com-
+puting Surveys, 55(12):1–38.
+Woojeong Jin, Meng Qu, Xisen Jin, and Xiang Ren.
+2020. Recurrent event network: Autoregressive
+structure inference over temporal knowledge graphs .
+In Proceedings of the 2020 Conference on Empirical
+Methods in Natural Language Processing (EMNLP),
+pages 6669–6683, Online. Association for Computa-
+tional Linguistics.
+Vladimir Karpukhin, Barlas Oguz, Sewon Min, Patrick
+Lewis, Ledell Wu, Sergey Edunov, Danqi Chen, and
+Wen-tau Yih. 2020. Dense passage retrieval for
+open-domain question answering. In Proceedings of
+the 2020 Conference on Empirical Methods in Nat-
+ural Language Processing (EMNLP) , pages 6769–
+6781, Online. Association for Computational Lin-
+guistics.
+Jure Leskovec, Anand Rajaraman, and Jeffrey D. Ull-
+man. 2020. Mining of Massive Datasets, 3rd edition.
+Cambridge University Press, Cambridge, United
+Kingdom.
+Patrick Lewis, Ethan Perez, Aleksandra Piktus, Fabio
+Petroni, Vladimir Karpukhin, Naman Goyal, Hein-
+rich Küttler, Mike Lewis, Wen-tau Yih, Tim Rock-
+täschel, Sebastian Riedel, and Douwe Kiela. 2020.
+Retrieval-augmented generation for knowledge-
+intensive nlp tasks . In Advances in Neural Infor-
+mation Processing Systems, volume 33, pages 9459–
+9474.
+Y ang Liu, Dan Iter, Yichong Xu, Shuohang Wang,
+Ruochen Xu, and Chenguang Zhu. 2023. G-Eval:
+NLG evaluation using GPT-4 with better human
+alignment. In Proceedings of the 2023 Conference
+on Empirical Methods in Natural Language Process-
+ing, pages 2511–2522.
+Gurmeet Singh Manku, Arvind Jain, and Anish
+Das Sarma. 2007. Detecting near-duplicates for
+web crawling . In Proceedings of the 16th Interna-
+tional Conference on World Wide Web , WWW ’07,
+pages 141–150, New Y ork, NY , USA. Association
+for Computing Machinery.
+Shirui Pan, Linhao Luo, Y ufei Wang, Chen Chen, Jiapu
+Wang, and Xindong Wu. 2024. Unifying large lan-
+guage models and knowledge graphs: A roadmap .
+20691
+
+===== PDF PAGE 11 =====
+IEEE Transactions on Knowledge and Data Engi-
+neering, 36(7):3580–3599.
+George Papadakis, Dimitrios Skoutas, Emmanouil
+Thanos, and Themis Palpanas. 2020. Blocking and
+ﬁltering techniques for entity resolution: A survey .
+ACM Computing Surveys, 53(2):1–42.
+Boci Peng, Y un Zhu, Y ongchao Liu, Xiaohe Bo,
+Haizhou Shi, Chuntao Hong, Y an Zhang, and Sil-
+iang Tang. 2025. Graph retrieval-augmented gener-
+ation: A survey . ACM Transactions on Information
+Systems, 44(2):1–52.
+Fabio Petroni, Aleksandra Piktus, Angela Fan, Patrick
+Lewis, Majid Y azdani, Nicola De Cao, James
+Thorne, Y acine Jernite, Vladimir Karpukhin, Jean
+Maillard, V assilis Plachouras, Tim Rocktäschel, and
+Sebastian Riedel. 2021. KILT: A benchmark for
+knowledge intensive language tasks. In Proceedings
+of the 2021 Conference of the North American Chap-
+ter of the Association for Computational Linguistics:
+Human Language Technologies, pages 2523–2544.
+Parth Sarthi, Salman Abdullah, Aditi Tuli, Shubh
+Khanna, Anna Goldie, and Christopher D. Manning.
+2024. RAPTOR: Recursive abstractive processing
+for tree-organized retrieval . In The Twelfth Interna-
+tional Conference on Learning Representations .
+Zequn Sun, Chengming Wang, Wei Hu, Muhao Chen,
+Jian Dai, Wei Zhang, and Y uzhong Qu. 2020.
+Knowledge graph alignment network with gated
+multi-hop neighborhood aggregation . In Proceed-
+ings of the AAAI Conference on Artiﬁcial Intelli-
+gence, volume 34, pages 222–229.
+Vincent A. Traag, Ludo Waltman, and Nees Jan van
+Eck. 2019. From Louvain to Leiden: Guarantee-
+ing well-connected communities. Scientiﬁc Reports,
+9(1):5233.
+Harsh Trivedi, Niranjan Balasubramanian, Tushar
+Khot, and Ashish Sabharwal. 2022. MuSiQue: Mul-
+tihop questions via single-hop question composition .
+Transactions of the Association for Computational
+Linguistics, 10:539–554.
+Shi-Qi Y an, Jia-Chen Gu, Y un Zhu, and Zhen-Hua
+Ling. 2024. Corrective retrieval augmented gener-
+ation. arXiv preprint arXiv:2401.15884.
+Y uchen Y an, Lihui Liu, Yikun Ban, Baoyu Jing, and
+Hanghang Tong. 2021. Dynamic knowledge graph
+alignment. In Proceedings of the AAAI Conference
+on Artiﬁcial Intelligence , volume 35, pages 4564–
+4572.
+Dongxu Zhang, Hongqiang Lin, Yiding Sun, Pengyu
+Wang, Qirui Wang, Ning Y ang, and Jihua Zhu.
+2026a. Not all queries need deep thought: CoFiCot
+for adaptive coarse-to-ﬁne stateful reﬁnement. arXiv
+preprint arXiv:2603.08251.
+Dongxu Zhang, Yiding Sun, Pengcheng Li, Y umou Liu,
+Hongqiang Lin, Haoran Xu, Xiaoxuan Mu, Liang
+Lin, Wenbiao Y an, Ning Y ang, Chaowei Fang, Juan-
+juan Zhao, Jihua Zhu, Conghui He, and Cheng Tan.
+2026b. PointCoT: A multi-modal benchmark for
+explicit 3d geometric reasoning . arXiv preprint
+arXiv:2602.23945.
+Dongxu Zhang, Yiding Sun, Cheng Tan, Wenbiao Y an,
+Ning Y ang, Jihua Zhu, and Haijun Zhang. 2026c.
+Chain-of-thought compression should not be blind:
+V-skip for efﬁcient multimodal reasoning via dual-
+path anchoring . In Proceedings of the 64th Annual
+Meeting of the Association for Computational Lin-
+guistics (V olume 1: Long Papers) , pages 19402–
+19415, San Diego, California, United States. Asso-
+ciation for Computational Linguistics.
+Dongxu Zhang, Y ujun Wu, Yiding Sun, Jinnan Y ang,
+Ning Y ang, Jihua Zhu, Miao Xin, and Baoliang Tian.
+2025a. Not all errors are created equal: ASCoT ad-
+dresses late-stage fragility in efﬁcient LLM reason-
+ing. arXiv preprint arXiv:2508.05282.
+Fangyuan Zhang, Zhengjun Huang, Yingli Zhou, Qin-
+tian Guo, Zhixun Li, Wensheng Luo, Di Jiang, Yix-
+iang Fang, and Xiaofang Zhou. 2025b. EraRAG:
+Efﬁcient and incremental retrieval augmented gen-
+eration for growing corpora . arXiv preprint
+arXiv:2506.20963.
+Lianmin Zheng, Wei-Lin Chiang, Ying Sheng, Siyuan
+Zhuang, Zhanghao Wu, Y onghao Zhuang, Zi Lin,
+Zhuohan Li, Dacheng Li, Eric P . Xing, Hao Zhang,
+Joseph E. Gonzalez, and Ion Stoica. 2023. Judging
+LLM-as-a-judge with MT-bench and chatbot arena .
+In Advances in Neural Information Processing Sys-
+tems, volume 36, pages 46595–46623.
+20692
+
+===== PDF PAGE 12 =====
+A Complete Threshold Parameters
+Parameter Value Role
+τ
+cand
+ent 0.5 Entity Jaccard fallback
+τ
+merge
+sem 0.82 Semantic sim. for merge
+τ
+merge
+kw 0.4 Keyword overlap for merge
+τ
+subset
+sem 0.84 Sem. sim. for subset merge
+τ
+replace
+ent 0.8 Entity overlap for replace
+τ
+replace
+sem 0.75 Semantic sim. for replace
+τ
+keep
+sem 0.65 Below → Keep_both
+τ
+keep
+ent 0.5 Below → Keep_both
+τ
+contain
+merge 0.6 Containment merge score
+τ
+contain
+replace 0.4 Containment replace score
+M extra 1 Max extra entities for containment
+M cand 8 Candidate edge cap
+k 16 LSH hyperplanes
+r hamming 2 Hamming search radius
+Table 7: Complete threshold parameters.
+B Decision Log Examples
+Merge. An incoming edge about neurons and
+synapses matched an existing edge with the same
+entity key. The semantic and keyword scores were
+0.91 and 0.62, respectively. The exact key and
+threshold conditions were both met, so descrip-
+tions were concatenated, source sets were merged,
+and weights were summed.
+Replace. An incoming GABA inhibition edge
+matched an existing edge with entity and semantic
+scores of 0.85 and 0.79. The incoming edge had
+stronger support and speciﬁcity scores than the ex-
+isting edge. The existing edge was marked inac-
+tive, and the incoming edge was inserted.
+Keep. An incoming dopamine reward edge had
+dopamine movement as its top candidate, but the
+entity score was only 0.33. The low overlap trig-
+gered the conservative keep both action, preserv-
+ing the two distinct relationships.
+C Pathology 5D Detailed Scores
+Method Type Comp. Div. Emp. Logical Read. A vg.
+RAG Single 62.70 1.53 0.53 69.87 76.94 42.31
+GraphRAG Single 64.03 18.77 5.53 59.83 65.74 42.78
+LightRAG Single 60.63 27.17 15.97 57.17 70.50 46.29
+HyperRAG Single 76.14 31.04 11.15 75.32 76.52 54.03
+HyperRAG-IHM Single 80.47 33.82 13.97 79.63 81.12 57.80
+RAG Multi 56.00 3.00 1.13 58.80 61.41 36.07
+GraphRAG Multi 78.87 27.20 4.00 79.53 75.60 53.04
+LightRAG Multi 76.27 22.13 14.13 73.60 82.80 53.79
+HyperRAG Multi 94.13 42.60 12.07 93.25 89.87 66.38
+HyperRAG-IHM Multi 95.73 39.80 9.53 95.60 93.21 66.77
+Table 8: Detailed 5D scores on Pathology. Single-hop
+scores are averaged over three 100-question trials, and
+multi-hop scores are averaged over three 50-question
+trials. Comp., Div., Emp., Read., and Avg. denote
+Comprehensiveness, Diversity, Empowerment, Read-
+ability, and Average.
+D Ablation 5D Details
+Method Type Comp. Div. Emp. Logical Read. A vg.
+Direct Insert Single 77.60 35.07 11.90 75.98 77.27 55.56
+Key-based Aggregation Single 80.47 31.60 10.43 79.23 78.65 56.08
+HyperRAG-IHM Single 80.47 33.82 13.97 79.63 81.12 57.80
+Direct Insert Multi 89.67 39.87 7.93 89.87 89.17 63.30
+Key-based Aggregation Multi 90.93 39.53 13.60 91.03 87.23 64.47
+HyperRAG-IHM Multi 95.73 39.80 9.53 95.60 93.21 66.77
+Table 9: 5D ablation results under single-hop and multi-
+hop settings.
+E MuSiQue Pairwise Details
+Method Comp. Emp. Acc. Rel. Coh. Clar . Logic. Flex. A vg.
+HyperRAG-IHM 71.33 66.00 57.25 52.45 48.95 30.20 50.00 32.62 51.10
+HyperRAG 28.67 34.00 42.75 47.55 51.05 69.80 50.00 67.38 48.90
+Table 10: Full 8D pairwise results on MuSiQue. V alues
+are preference rates among clear-preference cases.
+20693

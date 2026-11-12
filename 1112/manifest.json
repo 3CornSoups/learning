@@ -1,0 +1,120 @@
+[
+  {
+    "file": "papers/01_ProStruct-RAG.pdf",
+    "url": "https://aclanthology.org/2026.emnlp-main.294.pdf",
+    "retrieved_at": "2026-11-12",
+    "ok": true,
+    "bytes": 468096,
+    "sha256": "51ddd09ab03fcf83973327c2164beca1537491ac2ae909bbefa86f0d9de06eb5",
+    "pages": 23
+  },
+  {
+    "file": "papers/02_AURORA.pdf",
+    "url": "https://aclanthology.org/2026.findings-acl.495.pdf",
+    "retrieved_at": "2026-11-12",
+    "ok": true,
+    "bytes": 1405050,
+    "sha256": "fdb22e645d1a2229a79dc8d7c77a1529bff7f52974b11996fb95988c2bbc5039",
+    "pages": 17
+  },
+  {
+    "file": "papers/03_GFM-RAG.pdf",
+    "url": "https://arxiv.org/pdf/2502.01113v3",
+    "retrieved_at": "2026-11-12",
+    "ok": true,
+    "bytes": 1148983,
+    "sha256": "7b21153c7f1d9bd16125800720e1ce5fe9a480a0b934ccef48c901be94153635",
+    "pages": 35
+  },
+  {
+    "file": "papers/04_HyperRAG-IHM.pdf",
+    "url": "https://aclanthology.org/2026.emnlp-main.898.pdf",
+    "retrieved_at": "2026-11-12",
+    "ok": true,
+    "bytes": 3984744,
+    "sha256": "db96659720c0499011bb58799adc0df4b6b1005092e67181725f033848d500aa",
+    "pages": 12,
+    "validation_error": "'utf-8' codec can't encode character '\\ud835' in position 18041: surrogates not allowed",
+    "validation_error_fixed": "文本已使用替换策略成功提取；PDF 保持原样"
+  },
+  {
+    "file": "papers/05_G-reasoner_related.pdf",
+    "url": "https://arxiv.org/pdf/2509.24276",
+    "retrieved_at": "2026-11-12",
+    "ok": true,
+    "bytes": 1107820,
+    "sha256": "6952b275d29483b83810b1f141401bb5a7a1af55afda257496ec3b3e349fe074",
+    "pages": 25
+  },
+  {
+    "file": "sources/01_acl.html",
+    "url": "https://aclanthology.org/2026.emnlp-main.294/",
+    "retrieved_at": "2026-11-12",
+    "ok": true,
+    "bytes": 42574,
+    "sha256": "ccaeabce3f78b20bbca495932831f993eb24c7bd85651bcbb6aacbe0eb3b048b"
+  },
+  {
+    "file": "sources/02_acl.html",
+    "url": "https://aclanthology.org/2026.findings-acl.495/",
+    "retrieved_at": "2026-11-12",
+    "ok": true,
+    "bytes": 43337,
+    "sha256": "b5b3b8ea42ffa2b2e0803f6b91fbf6b96c5dc0a5267e5c599127293a681b7e67"
+  },
+  {
+    "file": "sources/04_acl.html",
+    "url": "https://aclanthology.org/2026.emnlp-main.898/",
+    "retrieved_at": "2026-11-12",
+    "ok": true,
+    "bytes": 44618,
+    "sha256": "b1299469dd7511516e7c4dc55fac8ef44a690b462182dbf212bea78eac5ebce3"
+  },
+  {
+    "file": "sources/03_gfm_docs.html",
+    "url": "https://rmanluo.github.io/gfm-rag/latest/",
+    "retrieved_at": "2026-11-12",
+    "ok": true,
+    "bytes": 29145,
+    "sha256": "26ec766ddb27751425d4e427e40b9b7ea56153bd4d067a9787307d3b94a77ea2"
+  },
+  {
+    "file": "sources/03_gfm_repo.html",
+    "url": "https://github.com/RManLuo/gfm-rag",
+    "retrieved_at": "2026-11-12",
+    "ok": true,
+    "bytes": 335473,
+    "sha256": "ba76e5a74f70f5a399620d7898dddc99054ac1d5e28bc1c26e0e35c5a05998d6"
+  },
+  {
+    "file": "sources/01_kapipe_repo.html",
+    "url": "https://github.com/norikinishida/kapipe",
+    "retrieved_at": "2026-11-12",
+    "ok": true,
+    "bytes": 318869,
+    "sha256": "9d773258a3040dba9e9ac436da3d23d380bfdcc0a732f94f76aeff0aa97d674a"
+  },
+  {
+    "file": "sources/03_gfm_readme.md",
+    "url": "https://raw.githubusercontent.com/RManLuo/gfm-rag/main/README.md",
+    "retrieved_at": "2026-11-12",
+    "ok": true,
+    "bytes": 12888,
+    "sha256": "3757faf2e063a047b7af0e4320ec99b50ebb958a085bb44e46cf9a67f360bcfb"
+  },
+  {
+    "file": "sources/01_kapipe_readme.md",
+    "url": "https://raw.githubusercontent.com/norikinishida/kapipe/main/README.md",
+    "retrieved_at": "2026-11-12",
+    "ok": true,
+    "bytes": 13432,
+    "sha256": "cad67df9d869c908e4e9559d74bd6cb14c35b411e1f140dfa4984f429a8b749e"
+  },
+  {
+    "file": "sources/03_gfm_install.html",
+    "url": "https://rmanluo.github.io/gfm-rag/latest/installation/",
+    "retrieved_at": "2026-11-12",
+    "ok": false,
+    "error": "curl: (22) The requested URL returned error: 404\r\n"
+  }
+]
