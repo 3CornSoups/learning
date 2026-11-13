@@ -1,6 +1,6 @@
 [
   {
-    "file": "code/kapipe_89aaeb9.zip",
+    "file": "supporting/code/kapipe_89aaeb9.zip",
     "url": "https://codeload.github.com/norikinishida/kapipe/zip/89aaeb94653698a13159bfc3168091c8527eb895",
     "retrieved_at": "2026-11-12",
     "ok": true,
@@ -9,7 +9,7 @@
     "archive_entries": 699
   },
   {
-    "file": "code/gfm-rag_b3e4321.zip",
+    "file": "supporting/code/gfm-rag_b3e4321.zip",
     "url": "https://codeload.github.com/RManLuo/gfm-rag/zip/b3e43219c49929da505244df4f0ba54c0947e4c4",
     "retrieved_at": "2026-11-12",
     "ok": true,
@@ -18,7 +18,7 @@
     "archive_entries": 310
   },
   {
-    "file": "sources/03_gfm_install.html",
+    "file": "supporting/sources/03_gfm_install.html",
     "url": "https://rmanluo.github.io/gfm-rag/latest/install/",
     "retrieved_at": "2026-11-12",
     "ok": true,
@@ -26,7 +26,7 @@
     "sha256": "6f112916fb3a9bf5cba662d2a8f7243b6939660f2ba83856a0f37c1bdb423d20"
   },
   {
-    "file": "sources/03_gfm_quick_start.html",
+    "file": "supporting/sources/03_gfm_quick_start.html",
     "url": "https://rmanluo.github.io/gfm-rag/latest/getting_started/quick_start/",
     "retrieved_at": "2026-11-12",
     "ok": true,
@@ -34,7 +34,7 @@
     "sha256": "277042ce114496feca234eb97753b110e1d9df8592d98a81368516ec08e7a388"
   },
   {
-    "file": "sources/03_gfm_experiments.html",
+    "file": "supporting/sources/03_gfm_experiments.html",
     "url": "https://rmanluo.github.io/gfm-rag/latest/experiment/overview/",
     "retrieved_at": "2026-11-12",
     "ok": true,
@@ -42,14 +42,14 @@
     "sha256": "adf5f78e61674fd9f7ebbb099280d3a375a4e71c1c4846f68f6c82e9af6a13cf"
   },
   {
-    "file": "sources/02_AURORA_checklist.pdf",
+    "file": "supporting/sources/02_AURORA_checklist.pdf",
     "url": "https://aclanthology.org/2026.findings-acl.495.checklist.pdf",
     "retrieved_at": "2026-11-12",
     "ok": false,
     "error": "curl: (22) The requested URL returned error: 404\r\n"
   },
   {
-    "file": "sources/01.bib",
+    "file": "supporting/sources/01.bib",
     "url": "https://aclanthology.org/2026.emnlp-main.294.bib",
     "retrieved_at": "2026-11-12",
     "ok": true,
@@ -57,7 +57,7 @@
     "sha256": "0251c586070e9852c0a97ab0a3493c8fb55196cf178cefe7f6b5e98e6650f017"
   },
   {
-    "file": "sources/02.bib",
+    "file": "supporting/sources/02.bib",
     "url": "https://aclanthology.org/2026.findings-acl.495.bib",
     "retrieved_at": "2026-11-12",
     "ok": true,
@@ -65,7 +65,7 @@
     "sha256": "75efd24c59de531ba52f7efce2c05a3f1045d3ebc5cf65f55101970c6f98c1cb"
   },
   {
-    "file": "sources/04.bib",
+    "file": "supporting/sources/04.bib",
     "url": "https://aclanthology.org/2026.emnlp-main.898.bib",
     "retrieved_at": "2026-11-12",
     "ok": true,

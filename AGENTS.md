@@ -2,6 +2,8 @@
 
 - Read `MAINTENANCE.md` before reorganizing learning materials.
 - Keep topic folders directly under the repository root: `RAG/`, `MinimaxH3/`, and future topic folders. Avoid deep nesting.
+- Keep each topic's first screen focused on original papers and actively maintained Markdown/HTML notes. Put code, datasets, snapshots, extracted text, images, and manifests in one `supporting/` folder unless the user asks otherwise.
+- Each topic README should link directly to the core papers and maintained notes, and provide one optional link to `supporting/`.
 - When adding a topic or a primary document, update the root `README.md` with a short, direct link.
 - Keep notes, source references, and useful artifacts close to the topic they belong to.
 - Preserve original source files and distinguish source content from summaries, interpretations, and hypotheses.

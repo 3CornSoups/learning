@@ -70,7 +70,7 @@ RAG（Retrieval-Augmented Generation，检索增强生成）通常先从外部�
 4. **问题检索**：先召回与问题相关的 top-k 锚点命题，再沿入边和出边做一跳扩展，使可能被纯语义检索漏掉的更新时间链、矛盾说法和支持证据一起进入上下文。
 5. **结构化上下文和回答**：将命题、时间与邻接关系转成文字，给 QA 模型，并提示它先依据证据推理再回答。
 
-命题抽取和关系图构建在线下完成；问题相关的锚点召回、子图扩展与答案生成发生在推理时。因此这是预处理比较重的结构化 RAG 方法。作者的组件图见论文第 3 页： [ProStruct-RAG 框架图](assets/prostruct_p3.png)。
+命题抽取和关系图构建在线下完成；问题相关的锚点召回、子图扩展与答案生成发生在推理时。因此这是预处理比较重的结构化 RAG 方法。作者的组件图见论文第 3 页： [ProStruct-RAG 框架图](supporting/assets/prostruct_p3.png)。
 
 ### 数据集与结果
 
@@ -157,7 +157,7 @@ RAG（Retrieval-Augmented Generation，检索增强生成）通常先从外部�
 
 ### 论文与项目版本
 
-**GFM-RAG: Graph Foundation Model for Retrieval Augmented Generation** 由 Linhao Luo 等人撰写，收录于 NeurIPS 2025。老师分享的是 [GFM-RAG 项目文档](https://rmanluo.github.io/gfm-rag/latest/)，而不是论文 PDF。为便于读论文，本资料包另外保存了 [arXiv v3 论文](papers/03_GFM-RAG.pdf) 和后续 [G-reasoner 论文](papers/05_G-reasoner_related.pdf)。
+**GFM-RAG: Graph Foundation Model for Retrieval Augmented Generation** 由 Linhao Luo 等人撰写，收录于 NeurIPS 2025。老师分享的是 [GFM-RAG 项目文档](https://rmanluo.github.io/gfm-rag/latest/)，而不是论文 PDF。为便于读论文，本资料包另外保存了 [arXiv v3 论文](03_GFM-RAG.pdf) 和后续 [G-reasoner 论文](05_G-reasoner_related.pdf)。
 
 官方仓库目前把 GFM-RAG 与后续 G-reasoner 放在同一项目文档中。README 显示，原版 GFM-RAG 使用 8M 参数模型，后续 G-reasoner 有 34M 参数模型。README 也记录了 GFM-RAG 的预训练数据版本变化：初始论文使用 60 个图、超过 1400 万条三元组和约 70 万文档；后续发布的模型版本加入了更多知识图谱。论文、模型 checkpoint 和当前示例的配置属于不同时间点，不要把版本数字拼成一套单一实验结果。
 
@@ -173,7 +173,7 @@ RAG（Retrieval-Augmented Generation，检索增强生成）通常先从外部�
 4. **实体到文档排序**：选取得分靠前的实体；根据实体出现在文档中的倒排关系与实体频率权重汇总文档分数，再挑选 top-k 文档。
 5. **生成答案**：把查询和这些文档交给下游 LLM。
 
-训练分两阶段：先在大量知识图谱上做自监督知识图谱补全训练（遮住三元组中的头或尾实体并预测），再用带支持文档的问题数据监督微调检索器。作者报告原始 GFM-RAG 检索器约 8M 参数；训练数据为 60 个知识图谱、超过 14M 三元组及约 700K 文档。论文示意图见 [原文 Figure 2](assets/gfm_p4.png)。
+训练分两阶段：先在大量知识图谱上做自监督知识图谱补全训练（遮住三元组中的头或尾实体并预测），再用带支持文档的问题数据监督微调检索器。作者报告原始 GFM-RAG 检索器约 8M 参数；训练数据为 60 个知识图谱、超过 14M 三元组及约 700K 文档。论文示意图见 [原文 Figure 2](supporting/assets/gfm_p4.png)。
 
 ### 实验结果如何读
 
@@ -307,17 +307,17 @@ RAG（Retrieval-Augmented Generation，检索增强生成）通常先从外部�
 
 ### 老师提供的入口
 
-- [ProStruct-RAG · ACL Anthology](https://aclanthology.org/2026.emnlp-main.294/) · [本地 PDF](papers/01_ProStruct-RAG.pdf) · [对应 ACL 原文快照](sources/01_acl.html)
-- [AURORA · ACL Anthology](https://aclanthology.org/2026.findings-acl.495/) · [本地 PDF](papers/02_AURORA.pdf) · [对应 ACL 原文快照](sources/02_acl.html)
-- [GFM-RAG 项目文档](https://rmanluo.github.io/gfm-rag/latest/) · [本地文档快照](sources/03_gfm_docs.html)
-- [HyperRAG-IHM · ACL Anthology](https://aclanthology.org/2026.emnlp-main.898/) · [本地 PDF](papers/04_HyperRAG-IHM.pdf) · [对应 ACL 原文快照](sources/04_acl.html)
+- [ProStruct-RAG · ACL Anthology](https://aclanthology.org/2026.emnlp-main.294/) · [本地 PDF](01_ProStruct-RAG.pdf) · [对应 ACL 原文快照](supporting/sources/01_acl.html)
+- [AURORA · ACL Anthology](https://aclanthology.org/2026.findings-acl.495/) · [本地 PDF](02_AURORA.pdf) · [对应 ACL 原文快照](supporting/sources/02_acl.html)
+- [GFM-RAG 项目文档](https://rmanluo.github.io/gfm-rag/latest/) · [本地文档快照](supporting/sources/03_gfm_docs.html)
+- [HyperRAG-IHM · ACL Anthology](https://aclanthology.org/2026.emnlp-main.898/) · [本地 PDF](04_HyperRAG-IHM.pdf) · [对应 ACL 原文快照](supporting/sources/04_acl.html)
 
 ### 补充的原始资料
 
-- [GFM-RAG 原论文 · arXiv v3](https://arxiv.org/abs/2502.01113v3) · [本地 PDF](papers/03_GFM-RAG.pdf)
-- [GFM-RAG 作者代码仓库](https://github.com/RManLuo/gfm-rag) · [固定提交源码 ZIP](code/gfm-rag_b3e4321.zip) · [本地 README](sources/03_gfm_readme.md)
-- [KAPipe 作者代码仓库](https://github.com/norikinishida/kapipe/tree/89aaeb94653698a13159bfc3168091c8527eb895) · [固定提交源码 ZIP](code/kapipe_89aaeb9.zip)
-- [Asteria 数据集：命题](code/kapipe_89aaeb9_docs/experiments/prostruct_rag_pipeline_emnlp2026/data/asteria/corpus/propositions.jsonl) · [问题](code/kapipe_89aaeb9_docs/experiments/prostruct_rag_pipeline_emnlp2026/data/asteria/qa/questions.json)
-- [G-reasoner 后续论文 · arXiv](https://arxiv.org/abs/2509.24276) · [本地 PDF](papers/05_G-reasoner_related.pdf)
+- [GFM-RAG 原论文 · arXiv v3](https://arxiv.org/abs/2502.01113v3) · [本地 PDF](03_GFM-RAG.pdf)
+- [GFM-RAG 作者代码仓库](https://github.com/RManLuo/gfm-rag) · [固定提交源码 ZIP](supporting/code/gfm-rag_b3e4321.zip) · [本地 README](supporting/sources/03_gfm_readme.md)
+- [KAPipe 作者代码仓库](https://github.com/norikinishida/kapipe/tree/89aaeb94653698a13159bfc3168091c8527eb895) · [固定提交源码 ZIP](supporting/code/kapipe_89aaeb9.zip)
+- [Asteria 数据集：命题](supporting/code/kapipe_89aaeb9_docs/experiments/prostruct_rag_pipeline_emnlp2026/data/asteria/corpus/propositions.jsonl) · [问题](supporting/code/kapipe_89aaeb9_docs/experiments/prostruct_rag_pipeline_emnlp2026/data/asteria/qa/questions.json)
+- [G-reasoner 后续论文 · arXiv](https://arxiv.org/abs/2509.24276) · [本地 PDF](05_G-reasoner_related.pdf)
 
-文件 SHA-256、下载来源和获取日期记录在 [manifest.json](manifest.json) 和 [manifest_extra.json](manifest_extra.json)。本资料包保留了 ACL 页面快照和 PDF 文本提取，引用细节或校验表格时请以原始 PDF 为准。
+文件 SHA-256、下载来源和获取日期记录在 [manifest.json](supporting/manifest.json) 和 [manifest_extra.json](supporting/manifest_extra.json)。本资料包保留了 ACL 页面快照和 PDF 文本提取，引用细节或校验表格时请以原始 PDF 为准。

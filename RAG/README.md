@@ -1,19 +1,22 @@
-# RAG｜主题入口
+# RAG｜阅读入口
 
-本主题整理持续变化知识下的 RAG 研究，重点包括命题关系、索引适应、图检索与超图增量维护。
+这里优先放需要经常阅读和维护的内容：原论文、论文详读 Markdown 和 HTML 导读。
 
-## 从这里开始
+## 原论文
 
-- [四项 RAG 工作详读](四项RAG工作详读.md)：逐篇整理问题、方法、数据、结果、局限和讨论问题。
-- [交互式导读](index.html)：图文浏览和讨论提纲。
+- [ProStruct-RAG](01_ProStruct-RAG.pdf)
+- [AURORA](02_AURORA.pdf)
+- [GFM-RAG](03_GFM-RAG.pdf)
+- [HyperRAG-IHM](04_HyperRAG-IHM.pdf)
+- [G-reasoner（补充）](05_G-reasoner_related.pdf)
 
-## 资料
+## 学习笔记
 
-- `papers/`：四项指定工作，以及 GFM-RAG / G-reasoner 补充论文。
-- `code/`：固定版本的 KAPipe、GFM-RAG 源码包及部分解出的文档和实验资料。
-- `sources/`：论文原始页面、项目文档和 BibTeX 快照。
-- `extracted/`：论文文字提取，引用时以 PDF 原文为准。
-- `assets/`：论文原图页与导读用图。
-- `manifest.json`、`manifest_extra.json`：来源、日期和 SHA-256 记录。
+- [四项 RAG 工作详读](四项RAG工作详读.md)：研究问题、方法、实验结果、局限和讨论问题。
+- [交互式导读](index.html)：图文概览与阅读提纲。
 
-AURORA 与 HyperRAG-IHM 的作者代码在整理时未确认。模型权重和完整外部基准数据未收录。更详细的维护规则见仓库根目录 [MAINTENANCE.md](../MAINTENANCE.md)。
+## 附属资料
+
+代码、数据集、网页快照、PDF 文本提取、配图和校验记录统一收在 [`supporting/`](supporting/README.md)，需要时再打开。
+
+来源论文和作者项目链接见详读文档；论文 PDF 保存在本目录，方便直接预览。
