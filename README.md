@@ -26,6 +26,7 @@ MiniMax H3 偏好后训练、DMD/SGMD 少步蒸馏、二阶段采样、SeedVR �
 
 - [维护约定](MAINTENANCE.md)
 - [AI 助手规则](AGENTS.md)
+- [AI 写作指引](AI写作指引.md)：维护论文笔记、研究总结与 HTML 导读时的写作和证据规范。
 
 ## 当前结构
 
@@ -33,6 +34,7 @@ learning/
 ├── README.md
 ├── MAINTENANCE.md
 ├── AGENTS.md
+├── AI写作指引.md
 ├── RAG/
 ├── 爬虫/
 └── MinimaxH3/

@@ -14,7 +14,7 @@ toy_grpo.py —— 用纯 numpy 做的最小对照实验
                  A_i = (r_i - mean(r)) / (std(r) + eps)
 
 运行：
-  python3 toy_grpo.py
+  python3 code/toy_grpo.py
 """
 
 import numpy as np
