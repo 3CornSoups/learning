@@ -21,11 +21,9 @@
 
 ## 代码快照与边界
 
-- [GRPO 直觉练习](code/toy_grpo.py)：小型 NumPy 示例，用于理解组内相对优势；不是 H3 训练代码。
 - code/dmd/：H3 DMD trainer、数学辅助代码和 4-NFE LoRA YAML。
 - code/sgmd/：H3 SGMD trainer、DMD trainer 公用文件和 phase2 YAML。
 - 这是局部源码快照，不是完整训练仓库；没有权重、prompt cache、checkpoint、W&B 运行日志或 SGLang 服务器部署包。
-- 完整本地推理加速报告、运行日志、样本视频和内部服务器信息不在公开快照中；本专题只保留适合分享的学习总结和代码片段。
 - LightX2V 许可证副本位于 code/LICENSE-LightX2V.txt。SGMD 派生快照没有保留上游仓库元数据，继续分发或商用前需核对其来源许可。
 - 配置中的机器路径已替换为环境变量或相对输出目录；训练仍需自行配置模型、数据、依赖和硬件。
 
